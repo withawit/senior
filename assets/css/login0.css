@@ -1,0 +1,107 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: "Poppins", sans-serif;
+}
+
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: white;
+
+}
+
+.card {
+    box-shadow: 0 0 10px rgba(0, 0, 0, .4);
+}
+
+.login {
+    width: 420px;
+    border: 2px solid (255, 255, 255, .2);
+    color: black;
+}
+
+.login h1 {
+    font-size: 36px;
+    text-align: center;
+}
+
+.login .input-box {
+    width: 100%;
+    height: 50px;
+    margin: 30px 0;
+}
+
+.remember-forgot {
+    display: flex;
+    justify-content: flex-end;
+    font-size: 14.5px;
+    margin: -8px 0 15px;
+}
+
+
+
+.remember-forgot p {
+    color: #505050;
+}
+
+.remember-forgot a {
+    color: #A60303;
+
+}
+
+.login .google {
+    width: 100%;
+    height: 45px;
+    font-size: 16px;
+    border-radius: 12px;
+    border: 2px solid #A60303;
+    color: #A60303;
+
+}
+
+.login .btn-primary {
+    width: 100%;
+    height: 45px;
+    font-size: 16px;
+    margin-top: 8px;
+    border-radius: 12px;
+    border: 2px solid white;
+    background-color: #A60303;
+    color: white;
+
+}
+.forgot2 .btn-back {
+    width: 100%;
+    height: 45px;
+    font-size: 16px;
+    margin-top: 8px;
+    border-radius: 12px;
+    border: 2px solid #A60303;
+    color: #A60303;
+}
+
+
+
+.login .register-link1 {
+    font-size: 14.5px;
+    text-align: center;
+    margin: 20px 0 15px;
+}
+
+.register-link1 p {
+    color: #505050;
+}
+
+.register-link1 a {
+    color: #A60303;
+    text-decoration: none;
+    font-weight: 600;
+}
+a {
+    text-decoration: none;
+    color: #A60303;
+}

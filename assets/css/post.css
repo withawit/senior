@@ -1,0 +1,39 @@
+.container-fluid {
+    margin-top: 7%;
+}
+h4 {
+    margin-left: 5%;
+    color: black;
+}
+input{
+    height: 100px;
+}
+/* .div.card.a{
+    padding-left: 7%;
+} */
+div.card{
+    position: fixed;
+    margin-top: 2%;
+    margin-left:61%;
+}
+button.btn.btn-danger{
+    margin-top: 7%;
+    margin-left: 96%;
+}
+input{
+    width: 90%;
+}
+div.carda{
+    position: relative;
+    margin-top: 10px;
+    padding-left: 7%;
+    height: 100px;
+}
+.card.b{
+    position: fixed;
+    margin-top: 2%;
+    margin-left: 65%;
+}
+.text-red{
+    color: red;
+}

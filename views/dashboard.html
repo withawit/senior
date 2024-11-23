@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <link href="" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="../assets/css/bootstrap.min.css" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/font/bootstrap-icons.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="../assets/css/navbar.css">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="../assets/lib/fusioncharts/js/fusioncharts.js"></script>
+    <script src="../assets/lib/fusioncharts/js/themes/fusioncharts.theme.fusion.js"></script>
+
+    <style>
+        .sidebar {
+            width: 250px;
+            height: 100vh;
+            background-color: #f8f9fa;
+            position: fixed;
+            top: 0;
+            left: 0;
+        }
+
+        .content {
+            margin-left: 250px;
+            padding: 20px;
+        }
+
+        .card {
+            width: 100%;
+            height: auto;
+            min-height: 17rem;
+        }
+
+        .card>.card-body>.card-title {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: 700;
+        }
+
+        .card>.card-body>span {
+            font-size: 100px;
+            font-weight: 700;
+            margin-top: 1.5rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #64acc0 !important;
+        }
+
+        .img-profile {
+            border-radius: 50%;
+            width: 35px;
+            margin-top: 4rem;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+            }
+
+            .content {
+                margin-left: 0;
+                padding: 15px;
+            }
+
+            .card>.card-body>span {
+                font-size: 50px;
+            }
+
+            #top-reviews-chart {
+                height: 20rem;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .card>.card-body>span {
+                font-size: 40px;
+            }
+
+            #top-reviews-chart {
+                height: 15rem;
+            }
+        }
+
+        img.profile {
+            margin-top: 150%;
+        }
+    </style>
+
+</head>
+
+<body>
+    <div class="flex-row">
+        <div class="nav">
+            <div class="sidebar">
+                <img src="../assets/images/สัญลักษณ์ประจำมหาวิทยาลัยแม่ฟ้าหลวง.png" width="50,70">
+                <p class="text-center" style="color: #A60303">MFU</p>
+                <hr>
+                <li class="mt-5"> <a href="/dashboard"><i class="bi bi-bar-chart"></i></a> </li>
+                <li class="mt-4"><a href="/listcourse"><i class="bi bi-map"></i></a></li>
+                <li class="mt-4"><a href="/search"><i class="bi bi-search"></i></a></li>
+                <li class="mt-4"><a href="/community"><i class="bi bi-chat"></i></a></li>
+                <li class="mt-4"><a href="/bookmark"><i class="bi bi-star"></i></a></li>
+                <li class="mt-4"><a href="/notification"><i class="bi bi-bell"></i></a></li>
+                <li class="mt-4"><a href="/history"><i class="bi bi-clock-history"></i></li>
+                <a class="btn" onclick="logout()">
+                    <div id="user-profile"></div>
+                </a>
+
+            </div>
+        </div>
+
+        <div class="d-flex">
+            <div id="nav-placeholder" style="width: 100px;"></div>
+            <div class="container-fluid flex-grow-1 my-3" id="main-content">
+                <h1 style="color: #A60303;">Dashboard</h1>
+
+                <div class="row my-2">
+                    <div class="col-sm-12 my-2 col-md-5 col-lg-4">
+                        <div class="card" id="total-people-reviews">
+                            <div class="card-body">
+                                <h5 class="card-title">Total of all reviews (People)</h5>
+                                <span id="total-reviews-number"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-12 my-2 col-md-5 col-lg-4">
+                        <div class="card" id="total-major-reviews">
+                            <div class="card-body">
+                                <h5 class="card-title">Total of all major elective reviews (People)</h5>
+                                <span id="total-major-reviews-number"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-12 my-2 col-md-5 col-lg-4">
+                        <div class="card" id="total-free-reviews">
+                            <div class="card-body">
+                                <h5 class="card-title">Total of all free elective reviews (People)</h5>
+                                <span id="total-free-reviews-number"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row my-2">
+                    <div class="col-12 d-flex justify-content-center align-content-center">
+                        <div id="top-reviews-chart" style="height: 30rem; width: 100%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- JavaScript -->
+    <script src="../assets/css/load-html.js"></script>
+    <script>
+        $(document).ready(() => {
+            const userinfo = JSON.parse(sessionStorage.getItem('userinfo'));
+            console.log(userinfo)
+            if (userinfo && userinfo.image) {
+                $('#user-profile').html(`
+                    <img class="img-profile" crossorigin="anonymous" src="${userinfo.image}" alt="User Profile" referrerpolicy="no-referrer" />
+                `);
+            } else {
+                console.log("No user image available");
+                $('#user-profile').html(`<p>No profile image available.</p>`);
+            }
+
+            get_review_qty();
+            get_review_chart();
+        });
+
+        function logout() {
+            fetch('/logout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json()) 
+            .then(data => {
+                if (data.redirect) {
+                    window.location.href = data.redirect; 
+                } else {
+                    console.error('Logout failed');
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
+        function get_review_qty() {
+            let totalReviewsSpan = $('#total-reviews-number');
+            let totalMajorReviewsSpan = $('#total-major-reviews-number');
+            let totalFreeReviewsSpan = $('#total-free-reviews-number');
+
+            totalReviewsSpan.empty();
+            totalMajorReviewsSpan.empty();
+            totalFreeReviewsSpan.empty();
+
+            fetch('/reviewsqty', { 
+                method: 'GET',
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.res) {
+                    const totalReviews = data.totalReviews || 0;
+                    const totalMajorReviews = data.totalMajorReviews || 0;
+                    const totalFreeReviews = data.totalFreeReviews || 0;
+
+                    $('#total-reviews-number').text(totalReviews);
+                    $('#total-major-reviews-number').text(totalMajorReviews);
+                    $('#total-free-reviews-number').text(totalFreeReviews);
+                } else {
+                    console.log(data.errMsg);
+                    totalReviewsSpan.text(data.errMsg);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+
+        function get_review_chart() {
+            $.ajax({
+                url: '/reviewChart',
+                type: 'get',
+                dataType: 'json',
+                success: (data) => {
+                    if (data.res) {
+                        let rateName = data.data;
+                        let formattedData = rateName.map(item => ({
+                            label: item.NAME,
+                            value: parseFloat(item.RATE),
+                            color: "#ff8e91"
+                        }));
+                        reviewCharts(formattedData);
+                    } else {
+                        console.error(data.errMsg)
+                        $('top-reviews-chart').html('<h2 class="text-center my-3">No data right now.</h2>');
+                    }
+                },
+                error: (xhr, status, error) => {
+                    console.error('AJAX Error:', status, error);
+                }
+            });            
+        }
+
+        function reviewCharts(data) {
+            const dataSource = {
+                chart: {
+                    caption: "10 Courses with Highest Reviews",
+                    xaxisname: "Course",
+                    yaxisname: "Review Score",
+                    theme: "fusion",
+                    showLabels: "0",
+                    rotateLabels: "1",
+                    slantLabels: "1",
+                    labelFontSize: "10",
+                    labelDisplay: "wrap",
+                    useEllipsesWhenOverflow: "1",
+                    yAxisMaxValue: "5",
+                    yAxisMinValue: "1"
+                },
+                data: data
+            };
+
+            FusionCharts.ready(function () {
+                var myChart = new FusionCharts({
+                    type: "column2d",
+                    renderAt: "top-reviews-chart",
+                    width: "100%",
+                    height: "100%",
+                    dataFormat: "json",
+                    dataSource
+                }).render();
+            });
+        }
+
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,90 @@
+
+/* .nav .container{
+    margin: 20px;
+    padding-left: 100px;
+} */
+
+/* .nav {
+    position: fixed;
+} */
+.nav .sidebar {
+    text-align: center;
+    position: fixed;
+    width: 80px;
+    background: #ffffff;
+    height: 100%;
+    box-shadow: 1px 0px  #E1E1E1;
+    /* border: 2px solid #A60303; */
+}
+i{
+    font-size: 25px;
+    color: #A60303;
+}
+i.bi-arrow-clockwise{
+    font-size: 29px;
+}
+img.profile {
+    margin-top: 60%;
+}
+i.bi.bi-chat.comment{
+    font-size: 20px;
+}
+.card:hover{
+width: 100%;
+box-shadow: 0 2px 16px 0 rgba(0,0,0.4,0.2);
+}
+.card {
+    z-index: 1;
+}
+
+a.topic {
+  text-decoration: none; 
+  color: #A60303;
+}
+span {
+    color: #A60303;
+}
+i.bi.bi-circle-fill {
+    z-index: 2;
+    position: fixed;
+    font-size: 55px;
+    margin-left: 85%;
+    margin-top: 90dvb;
+}
+i.bi.bi-pencil {
+    z-index: 3;
+    position: fixed;
+    font-size: 25px;
+    margin-left: 86%;
+    margin-top: 93dvb;
+}
+button.btn {
+    background-color: #A60303;
+    color: #ffffff;
+    z-index: 2;
+    position: fixed;
+    font-size: 20px;
+    margin-left: 80%;
+    margin-top: 90dvb;
+}
+button.btn.bee {
+    background-color: #A60303;
+   position: absolute;
+    color: #ffffff;
+    font-size: 20px;
+    margin-left: 85%;
+    margin-top: 115px;
+}
+i.bi-plus-lg{
+    color: #ffffff;
+    font-size: 15px;
+    padding-right: 5px;
+    padding-bottom: 7px;
+}
+.logout {
+    margin-top: 23vh;
+    font-size: 29px;
+}
+.bi-box-arrow-right{
+    font-size: 29px;
+}

@@ -1,0 +1,29 @@
+.topic {
+    margin-left: 1.5%;
+}
+h5.comment {
+    margin-left: 1.5%;
+    color: #A60303;
+}
+h5 {
+    margin-left: 8%;
+}
+p.comt {
+    margin-left: 10%;
+}
+
+i.bi.bi-chat.comment {
+    margin-right: 2%;
+}
+textarea {
+    width: 95%;
+}
+svg.bi.bi-send {
+    margin-bottom: 3%;
+    color: #A60303;
+}
+textarea {
+    margin-top: 1%;
+    border-radius: 20px;
+    border-color: #979797;
+}

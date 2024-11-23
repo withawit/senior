@@ -1,0 +1,86 @@
+.navbar {
+    background-color: #fff;
+    height: 80px;
+    margin: 20px;
+    border-radius: 16px;
+    padding: 0.5rem;
+}
+
+
+.login-button {
+    background-color: #A60303;
+    color: white;
+    font-size: 20px;
+    padding: 8px 20px;
+    border-radius: 10px;
+    text-decoration: none;
+    transition: 0.2s background-color;
+}
+
+.login-button:hover {
+    background-color: #A60303;
+    color: white;
+}
+
+.navbar-toggler {
+    border: none;
+    font-size: 1.25rem;
+}
+
+.navbar-toggler:focus .btn-colse:focus{
+    box-shadow: none;
+    outline: none;
+}
+
+.nav-link {
+    color: #A60303;
+    font-weight: 500rem;
+    font-size: 20px;
+}
+
+.nav-link:hover {
+    color: gray;
+}
+
+@media(min-width: 991px) {
+    .nav-link::before {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 2px;
+        visibility: hidden;
+        transition: 0.3s ease-in-out;
+    }
+
+    .nav-link:hover::before  {
+        width: 100%;
+        visibility: visible;
+    }
+}
+
+.hero-section {
+    background: url(../images/mfu\ today1.jpg)no-repeat center;
+    background-size: cover;
+    width: 100%;
+    height: 100vh;
+}
+
+.hero-section::before {
+    background-color: rgba(0, 0, 0, 0.6);
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+}
+
+.hero-section .container {
+    height: 100vh;
+    z-index: 2;
+    position: relative;
+
+}

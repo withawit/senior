@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="../assets/css/bootstrap.min.css">
+    <script src="../assets/css/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="../assets/css/listcourses.css">
+    <link rel="stylesheet" href="../assets/css/navbar.css">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="../assets/lib/fusioncharts/js/fusioncharts.js"></script>
+    <script src="../assets/lib/fusioncharts/js/themes/fusioncharts.theme.fusion.js"></script>
+    <title>Courses</title>
+    <style>
+        .img-profile {
+            border-radius: 50%;
+            width: 35px;
+            margin-top: 4rem;
+        }
+
+    </style>
+</head>
+
+<body>
+    <div class="flex-row">
+    <div class="nav">
+        <div class="sidebar">
+            <img src="../assets/images/สัญลักษณ์ประจำมหาวิทยาลัยแม่ฟ้าหลวง.png" width="50,70">
+            <p class="text-center" style="color: #A60303">MFU</p>
+            <hr>
+            <li class="mt-5"> <a href="/dashboard"><i class="bi bi-bar-chart"></i></a> </li>
+            <li class="mt-4"><a href="/listcourse"><i class="bi bi-map"></i></a></li>
+            <li class="mt-4"><a href="/search"><i class="bi bi-search"></i></a></li>
+            <li class="mt-4"><a href="/community"><i class="bi bi-chat"></i></a></li>
+            <li class="mt-4"><a href="/bookmark"><i class="bi bi-star"></i></a></li>
+            <li class="mt-4"><a href="/notification"><i class="bi bi-bell"></i></a></li>
+            <li class="mt-4"><a href="/history"><i class="bi bi-clock-history"></i></li>
+            <a class="btn" onclick="logout()">
+                <div id="user-profile"></div>
+            </a>
+
+        </div>
+    </div>
+
+    <div class="col">
+        <h1 class="head text-left" style="color: #A60303;">List of Courses</h1>
+        <hr class="list">
+    </div>
+
+    <!-- Free Elective Courses Table -->
+    <div class="col1">
+        <div class="container-fluid">
+        <div class="dropdown-header" onclick="toggleTable('mytable1', 'dropdownIcon1')">
+            <p class="mt mt-5">Free Elective Courses</p>
+            <i class="bi bi-chevron-down" id="dropdownIcon1" style="color: black;"></i>
+        </div>
+        <table class="table table-hover" id="mytable1">
+            <thead>
+                <tr class="table-secondary">
+                    <th>Courses</th>
+                    <th>Courses Code</th>
+                    <th>Rating</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% courses.filter(course => course.type === 'Free Elective').forEach(course => { %>
+                    <tr onclick="window.location.href='/course/<%= course.id %>'" style="cursor: pointer;">
+                        <td><%= course.name %></td>
+                        <td><%= course.code %></td>
+                        <td><%= course.rating %></td>
+                    </tr>
+                <% }) %>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+    <!-- Major Elective Courses Table -->
+    <div class="col1">
+        <div class="dropdown-header" onclick="toggleTable('mytable2', 'dropdownIcon2')">
+            <p class="mt mt-5">Major Elective Courses</p>
+            <i class="bi bi-chevron-down" id="dropdownIcon2" style="color: black;"></i>
+        </div>
+        <div class="container-fluid">
+        <table class="table table-hover" id="mytable2">
+            <thead>
+                <tr class="table-secondary">
+                    <th>Courses</th>
+                    <th>Courses Code</th>
+                    <th>Rating</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% courses.filter(course => course.type === 'Major Elective').forEach(course => { %>
+                    <tr onclick="window.location.href='/course/<%= course.id %>'" style="cursor: pointer;">
+                        <td><%= course.name %></td>
+                        <td><%= course.code %></td>
+                        <td><%= course.rating %></td>
+                    </tr>
+                <% }) %>
+            </tbody>
+        </table>
+    </div>
+</div>
+</div>
+
+    <script>
+        function toggleTable(tableId, iconId) {
+            const table = document.getElementById(tableId);
+            const icon = document.getElementById(iconId);
+
+            if (table.style.display === "none" || table.style.display === "") {
+                table.style.display = "table";
+                icon.classList.replace("bi-chevron-down", "bi-chevron-up");
+            } else {
+                table.style.display = "none";
+                icon.classList.replace("bi-chevron-up", "bi-chevron-down");
+            }
+        }
+    </script>
+    <script src="../assets/css/load-html.js"></script>
+    <script>
+        $(document).ready(() => {
+            const userinfo = JSON.parse(sessionStorage.getItem('userinfo'));
+            console.log(userinfo)
+            if (userinfo && userinfo.image) {
+                $('#user-profile').html(`
+                    <img class="img-profile" crossorigin="anonymous" src="${userinfo.image}" alt="User Profile" referrerpolicy="no-referrer" />
+                `);
+            } else {
+                console.log("No user image available");
+                $('#user-profile').html(`<p>No profile image available.</p>`);
+            }
+
+            get_review_qty();
+            get_review_chart();
+            
+        });
+</script>
+</body>
+
+</html>

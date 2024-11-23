@@ -1,0 +1,43 @@
+#shape1 {
+    height: 30px;
+    width: 100px;
+    background-color: white;
+    border-radius: 8%;
+    border: 1px #A60303 solid;
+    text-align: center;
+  }
+  a.bubu {
+    text-decoration: none;
+    color: #A60303;
+  }
+  .card{
+    height: 50%;
+    width: 100%;
+  }
+  h3.no{
+    padding-top: 2.5rem;
+  }
+  a.ne{
+    text-decoration: none;
+  }
+h4.co{
+    color: #B3B3B3;
+}
+.justi {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px; /* Optional: Adds spacing between the links and the cards */
+}
+#shape2{
+    height: 30px;
+    width: 100px;
+    background-color: #A60303;
+    border-radius: 8%;
+    border: 1px #A60303 solid;
+    text-align: center;
+    margin-right: 89%;
+}
+a.bube{
+    text-decoration: none;
+    color: #ffffff;
+}

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Community</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="../assets/css/navbar.css">
+    <link rel="stylesheet" href="../assets/css/page-layout.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:ital@1&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../assets/css/bootstrap.min.css">
+    <script src="../assets/js/bootstrap.bundle.min.js"></script>
+</head>
+<body>
+    <div class="flex-row">
+        <div class="nav">
+            <div class="sidebar">
+                <img src="/assets/images/สัญลักษณ์ประจำมหาวิทยาลัยแม่ฟ้าหลวง.png" width="50,70">
+                <p class="text-center" style="color: #A60303;">MFU</p>
+                <hr>
+                <li class="mt-5"> <a href="/dashboardadmin"><i class="bi bi-bar-chart"></i></a> </li>
+                <li class="mt-5"><a href="/listadmin"><i class="bi bi-map"></i></a></li>
+                <li class="mt-5"><a href="/importstudent"><i class="bi bi-person-plus-fill"></i></a></li>
+                <li class="mt-5"><a href="/commuadmin"><i class="bi bi-chat"></i></a></li>
+                <li class="logout"><a href="/home"><i class="bi bi-box-arrow-right"></i></a></li>
+            </div>
+        </div>
+    </div>
+    <div class="container">
+        <h1 class="mt-5" style="color: #A60303;">Community</h1>
+
+        <div class="container-fluid">
+            <% posts.forEach(function(post, index) { %>
+                <div id="post-<%= index %>" class="container-fluid card mt-5">
+                    <div class="detail text-end">
+                        <i class="bi bi-trash-fill" style="cursor: pointer;" onclick="deletePost(<%= index %>)"></i>
+                    </div>
+                    <a href="/comment/<%= index %>">
+                        <p class="mt-4" style="color: #A60303; font-size: 25px;"><%= post %></p>
+                    </a>
+                    <div class="detail text-end">
+                        <span><%= comments[index] ? comments[index].length : 0 %></span>
+                        <i class="bi bi-chat comment"></i>
+                    </div>
+                </div>
+            <% }); %>
+        </div>
+        <div id="postList" class="mt-5"></div>
+    </div>
+    </div>
+
+    <script>
+        function deletePost(postIndex) {
+            if (confirm("Are you sure you want to delete this post?")) {
+                fetch(`/commuadmin/delete/${postIndex}`, {
+                    method: 'DELETE',
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Remove the post from the DOM
+                        document.getElementById(`post-${postIndex}`).remove();
+                    } else {
+                        alert('Failed to delete the post');
+                    }
+                })
+                .catch(err => console.error('Error deleting post:', err));
+            }
+        }
+        
+        function displayPosts() {
+            const posts = JSON.parse(localStorage.getItem('posts')) || [];
+            const postList = document.getElementById('postList');
+            postList.innerHTML = ''; // Clear existing posts
+
+            posts.forEach((postContent, index) => {
+                const postCard = document.createElement('div');
+                postCard.className = 'container-fluid card mt-3';
+                postCard.innerHTML = `
+                <h4 class="mt-4">${postContent}</h4>
+                <div class="detail text-end">
+                    <span>${index + 1}</span>
+                    <i class="bi bi-chat comment"></i>
+                </div>
+            `;
+                postList.appendChild(postCard);
+            });
+        }
+        window.onload = displayPosts;
+    </script>
+</body>
+</html>

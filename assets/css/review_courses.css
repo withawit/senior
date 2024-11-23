@@ -1,0 +1,130 @@
+
+*{
+    list-style: none;
+    /* ดาว */
+    margin: 0;
+    padding: 0;
+}
+body {
+    background: #e7e7e7;
+    /* background: #ffffff; */
+}
+.nav {
+    display: flex;
+    position: relative;
+    
+}
+.nav .sidebar {
+    text-align: center;
+    position: fixed;
+    width: 80px;
+    background: #ffffff;
+    height: 100%;
+    box-shadow: 1px 0px  #E1E1E1;
+    
+}
+i{
+    font-size: 25px;
+    color: #A60303;
+}
+
+.head{
+    margin-left: 100px;
+    font-weight: bold;
+    margin-bottom: 100px;
+    margin-top: 100px;
+    background-color: #ffffff;
+
+}
+.col{
+    background: #ffffff; 
+    display: flex;
+}
+img.profile {
+    margin-top: 150%;
+}
+
+.checked {
+    color: orange;
+  }
+.review{
+    margin-left: 100px;  
+    
+}
+.a{
+    margin-left: 50px;
+    width: 500px;
+}
+
+/* ดาว */
+.rate {
+    
+    height: 10px;
+    margin-top: 20px;
+    margin-right: 650px;
+    
+}
+
+.rate p {
+   
+    margin-bottom: 1px; 
+}
+
+.rate:not(:checked) > input {
+    position:absolute;
+    top: -9999px;
+}
+.rate:not(:checked) > label {
+    float:right;
+    width:1em;
+    overflow:hidden;
+    white-space:nowrap;
+    cursor:pointer;
+    font-size:30px;
+    color:#ccc;
+}
+.rate:not(:checked) > label:before {
+    content: '★ ';
+}
+.rate > input:checked ~ label {
+    color: #ffc700;    
+}
+.rate:not(:checked) > label:hover,
+.rate:not(:checked) > label:hover ~ label {
+    color: #deb217;  
+}
+.rate > input:checked + label:hover,
+.rate > input:checked + label:hover ~ label,
+.rate > input:checked ~ label:hover,
+.rate > input:checked ~ label:hover ~ label,
+.rate > label:hover ~ input:checked ~ label {
+    color: #c59b08;
+}
+
+
+/* ----------------------------------- */
+
+/* warning box */
+.warning {
+    width: 300px;
+    height: 70px;
+    background-color: #ffffff;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2); /* เพิ่มเงาด้านล่าง */
+    padding: 20px;
+    margin-top: 100px;
+}
+
+/* comment */
+
+.comment textarea {
+    width: 780px; 
+    height: 50px; 
+    padding: 10px; 
+    font-size: 16px; 
+    border: 1px solid #ccc; 
+    border-radius: 50px; 
+    resize: none; 
+    margin-left: 40px;
+}
+
+

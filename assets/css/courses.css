@@ -1,0 +1,106 @@
+
+*{
+    list-style: none;
+}
+body {
+    background: #e7e7e7;
+    /* background: #ffffff; */
+}
+.nav {
+    display: flex;
+    position: relative;
+    
+}
+.nav .sidebar {
+    text-align: center;
+    position: fixed;
+    width: 80px;
+    background: #ffffff;
+    height: 100%;
+    box-shadow: 1px 0px  #E1E1E1;
+    
+}
+i{
+    font-size: 25px;
+    color: #A60303;
+}
+
+.head{
+    margin-left: 100px;
+    
+    margin-bottom: 100px;
+    margin-top: 100px;
+    background-color: #ffffff;
+    
+
+}
+.col{
+    background: #ffffff; 
+    display: flex;
+    flex-direction: column;
+}
+
+img.profile {
+    margin-top: 150%;
+}
+img.user{
+    margin-bottom: 100%;
+}
+
+.checked {
+    color: orange;
+  }
+
+  .star {
+    font-size: 3em;
+    cursor: pointer;
+    color: lightgray;
+    align-items: end;
+    
+}
+
+.star.filled {
+    color: #A60303;
+    border-color: #A60303;
+}
+
+.header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+.head {
+    color: #A60303;
+}
+
+/* Add this CSS inside the <style> tag in the head section */
+.add-review-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+    background-color: #A60303;
+    border-color: #A60303;
+    width: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn:hover{
+    background-color: gray;
+    border-color: gray;
+}
+
+/* Add this to your CSS file or within a <style> tag in the <head> section */
+.star {
+    cursor: pointer; /* Ensure the cursor changes to a pointer when hovering */
+}
+
+.star.active {
+    color: red; /* Change color to red when active */
+}
+  
+
+
