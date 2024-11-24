@@ -302,7 +302,7 @@ app.get("/history", (req, res) => {
 // ---submitreview----
 // ---submitreview----
 // ---submitreview----
-app.post('/submit-review', (req, res) => {
+app.post('/submit-review', (req, res) => { 
   const student_id = req.session.user?.id;
 
   if (!student_id) {
@@ -311,25 +311,19 @@ app.post('/submit-review', (req, res) => {
 
   const { course_id, rate_easy, rate_collect, rate_registration, rate_content, rate_overview, review_detail } = req.body;
 
-  // Convert ratings to normalized values
-  const normalizedRateEasy = parseFloat(rate_easy) * (2 / 5);
-  const normalizedRateCollect = parseFloat(rate_collect) * (2 / 5);
-  const normalizedRateRegistration = parseFloat(rate_registration) * (2 / 5);
-  const normalizedRateContent = parseFloat(rate_content) * (2 / 5);
-  const normalizedRateOverview = parseFloat(rate_overview) * (2 / 5);
-
-  // Calculate total normalized score
-  const totalNormalizedScore = normalizedRateEasy + normalizedRateCollect + normalizedRateRegistration + normalizedRateContent + normalizedRateOverview;
+  // Calculate the average rating for the review
+  const totalRating = parseFloat(rate_easy) + parseFloat(rate_collect) + parseFloat(rate_registration) + parseFloat(rate_content) + parseFloat(rate_overview);
+  const averageRating = (totalRating / 5).toFixed(2);  // Round the average to 2 decimal places
 
   // Insert the review into the database
   const insertReviewQuery = `
-      INSERT INTO course_reviews (course_id, student_id, rate_easy, rate_collect, rate_registration, rate_content, rate_overview, review_detail)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO course_reviews (course_id, student_id, rate_easy, rate_collect, rate_registration, rate_content, rate_overview, review_detail, average)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   con.query(
     insertReviewQuery,
-    [course_id, student_id, rate_easy, rate_collect, rate_registration, rate_content, rate_overview, review_detail],
+    [course_id, student_id, rate_easy, rate_collect, rate_registration, rate_content, rate_overview, review_detail, averageRating],
     (err, result) => {
       if (err) {
         console.error('Error inserting review:', err);
@@ -338,11 +332,7 @@ app.post('/submit-review', (req, res) => {
 
       // Recalculate the course's average rating
       const recalculateRatingQuery = `
-        SELECT AVG((rate_easy * 2 / 5) +
-                   (rate_collect * 2 / 5) +
-                   (rate_registration * 2 / 5) +
-                   (rate_content * 2 / 5) +
-                   (rate_overview * 2 / 5)) AS average_rating
+        SELECT SUM(average) AS totalRating, COUNT(*) AS reviewCount
         FROM course_reviews
         WHERE course_id = ?
       `;
@@ -353,7 +343,15 @@ app.post('/submit-review', (req, res) => {
           return res.status(500).send('Error recalculating course rating');
         }
 
-        const newAverageRating = ratingResults[0]?.average_rating || 0;
+        const totalRating = ratingResults[0]?.totalRating || 0;
+        const reviewCount = ratingResults[0]?.reviewCount || 0;
+
+        console.log(`Total rating: ${totalRating}, Review count: ${reviewCount}`);
+
+        // Calculate the new average rating
+        const newAverageRating = (totalRating / reviewCount).toFixed(2); // Ensure rounding to two decimal places
+
+        console.log(`Recalculated new average rating for course ${course_id}: ${newAverageRating}`);
 
         // Update the course's rating in the database
         const updateCourseQuery = `
@@ -375,6 +373,10 @@ app.post('/submit-review', (req, res) => {
     }
   );
 });
+
+
+
+
 
 
 
@@ -431,62 +433,64 @@ app.get('/course/:id', (req, res) => {
   const firstName = req.session.user ? req.session.user.firstName : '';
   const lastName = req.session.user ? req.session.user.lastName : '';
 
-  // Query course details
+  // Queries to fetch course details and reviews
   const queryCourse = 'SELECT * FROM coursee WHERE id = ?';
-
-  // Modify the query to join the course_reviews table with the student table to get the email of the reviewer
   const queryReviews = `
     SELECT 
       cr.*, 
-      s.email AS student_email  -- Select the student's email
+      s.email AS student_email
     FROM course_reviews cr
     JOIN student s ON cr.student_id = s.studentid
     WHERE cr.course_id = ?
   `;
 
+  // Fetch course details and reviews concurrently
   con.query(queryCourse, [courseId], (err, courseDetails) => {
-    if (err || courseDetails.length === 0) {
+    if (err) {
+      console.error('Error fetching course details:', err);
       return res.status(500).send('Error fetching course details.');
+    }
+
+    // If the course is not found, send a 404 response
+    if (courseDetails.length === 0) {
+      return res.status(404).send('Course not found.');
     }
 
     con.query(queryReviews, [courseId], (err, courseReviews) => {
       if (err) {
+        console.error('Error fetching course reviews:', err);
         return res.status(500).send('Error fetching course reviews.');
       }
 
-      // Calculate total normalized score for each review
+      // Map reviews and calculate normalized scores
       const reviewsWithScores = courseReviews.map((review) => {
-        const normalizedRateEasy = review.rate_easy * (2 / 5);
-        const normalizedRateCollect = review.rate_collect * (2 / 5);
-        const normalizedRateRegistration = review.rate_registration * (2 / 5);
-        const normalizedRateContent = review.rate_content * (2 / 5);
-        const normalizedRateOverview = review.rate_overview * (2 / 5);
-
-        const totalNormalizedScore =
-          normalizedRateEasy +
-          normalizedRateCollect +
-          normalizedRateRegistration +
-          normalizedRateContent +
-          normalizedRateOverview;
+        const totalNormalizedScore = (
+          (review.rate_easy / 5) +
+          (review.rate_collect / 5) +
+          (review.rate_registration / 5) +
+          (review.rate_content / 5) +
+          (review.rate_overview / 5)
+        );
 
         return {
           ...review,
-          
-          total_normalized_score: totalNormalizedScore.toFixed(2), // Add the normalized score to the review
+          total_normalized_score: totalNormalizedScore.toFixed(1),
         };
       });
 
-      // Render the course detail page with all required data
+      // Render the course detail page with required data
       res.render('coursedetail', {
-        course: courseDetails[0],
-        reviews: reviewsWithScores, // Pass reviews with normalized scores
-        userEmail: userEmail,
-        firstName: firstName, // Pass user's first name
-        lastName: lastName,   // Pass user's last name
+        course: courseDetails[0],    // Pass course details
+        reviews: reviewsWithScores, // Pass processed reviews
+        userEmail,                   // Pass user's email
+        firstName,                   // Pass user's first name
+        lastName,                    // Pass user's last name
       });
     });
   });
 });
+
+
 
 
 
@@ -1442,6 +1446,7 @@ app.get('/search', isAuthenticated, (req, res) => {
       });
   });
 });
+
 
 
 
