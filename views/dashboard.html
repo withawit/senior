@@ -114,10 +114,10 @@
                 <li class="mt-4"><a href="/community"><i class="bi bi-chat"></i></a></li>
                 <li class="mt-4"><a href="/bookmark"><i class="bi bi-star"></i></a></li>
                 <li class="mt-4"><a href="/notification"><i class="bi bi-bell"></i></a></li>
-                <li class="mt-4"><a href="/history"><i class="bi bi-clock-history"></i></li>
-                <a class="btn" onclick="logout()">
-                    <div id="user-profile"></div>
-                </a>
+                <li class="mt-4"><a href="/history"><i class="bi bi-pencil-square"></i></li>
+                    <a class="btn" onclick="profile()">
+                        <div id="user-profile"></div>
+                    </a>
 
             </div>
         </div>
@@ -139,8 +139,8 @@
                     <div class="col-sm-12 my-2 col-md-5 col-lg-4">
                         <div class="card" id="total-major-reviews">
                             <div class="card-body">
-                                <h5 class="card-title">Total of all major elective reviews (People)</h5>
-                                <span id="total-major-reviews-number"></span>
+                                <h5 class="card-title">Total of all course open (course)</h5>
+                                <span id="total-courses-open-number"></span>
                             </div>
                         </div>
                     </div>
@@ -202,36 +202,37 @@
         }
 
         function get_review_qty() {
-            let totalReviewsSpan = $('#total-reviews-number');
-            let totalMajorReviewsSpan = $('#total-major-reviews-number');
-            let totalFreeReviewsSpan = $('#total-free-reviews-number');
+    let totalReviewsSpan = $('#total-reviews-number');
+    let totalCoursesOpenSpan = $('#total-courses-open-number');
+    let totalFreeReviewsSpan = $('#total-free-reviews-number');
 
-            totalReviewsSpan.empty();
-            totalMajorReviewsSpan.empty();
-            totalFreeReviewsSpan.empty();
+    totalReviewsSpan.empty();
+    totalCoursesOpenSpan.empty();
+    totalFreeReviewsSpan.empty();
 
-            fetch('/reviewsqty', { 
-                method: 'GET',
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.res) {
-                    const totalReviews = data.totalReviews || 0;
-                    const totalMajorReviews = data.totalMajorReviews || 0;
-                    const totalFreeReviews = data.totalFreeReviews || 0;
+    fetch('/reviewsqty', { 
+        method: 'GET',
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.res) {
+            const totalReviews = data.totalReviews || 0;
+            const totalCoursesOpen = data.totalCoursesOpen || 0;
+            const totalFreeReviews = data.totalFreeReviews || 0;
 
-                    $('#total-reviews-number').text(totalReviews);
-                    $('#total-major-reviews-number').text(totalMajorReviews);
-                    $('#total-free-reviews-number').text(totalFreeReviews);
-                } else {
-                    console.log(data.errMsg);
-                    totalReviewsSpan.text(data.errMsg);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-            });
+            $('#total-reviews-number').text(totalReviews);
+            $('#total-courses-open-number').text(totalCoursesOpen); // Update the span for courses open
+            $('#total-free-reviews-number').text(totalFreeReviews);
+        } else {
+            console.log(data.errMsg);
+            totalReviewsSpan.text(data.errMsg);
         }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+}
+
 
         function get_review_chart() {
             $.ajax({
@@ -288,7 +289,9 @@
                 }).render();
             });
         }
-
+function profile(){
+    window.location.href='/profile';
+}
     </script>
 </body>
 

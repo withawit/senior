@@ -406,19 +406,24 @@ app.get("/listcourse", isAuthenticated, function (req, res) {
     }
 
     let filteredCourses;
+    let isMajorElectiveVisible = userEmail.startsWith('643150'); // Check if user can see Major Elective
 
+    // Show all courses for users with emails starting with '643150'
     if (userEmail.endsWith('@lamduan.mfu.ac.th') && userEmail.startsWith('643150')) {
-      // Show all courses (Free Elective and Major Elective)
       filteredCourses = results;
     } else {
       // Show only Free Elective courses
       filteredCourses = results.filter(course => course.type === 'Free Elective');
     }
 
-    // Render the list of filtered courses
-    res.render('listcourses', { courses: filteredCourses });
+    // Render the list of courses and whether Major Elective should be visible
+    res.render('listcourses', { 
+      courses: filteredCourses, 
+      showMajorElective: isMajorElectiveVisible 
+    });
   });
 });
+
 
 
 // Show course details with reviews
@@ -427,6 +432,7 @@ app.get("/listcourse", isAuthenticated, function (req, res) {
 // Show course details (for students only)
 app.get('/course/:id', (req, res) => {
   const courseId = req.params.id;
+  const user = req.session.user;
 
   // Check if the user session has data
   const userEmail = req.session.user ? req.session.user.email : 'Guest';
@@ -484,12 +490,35 @@ app.get('/course/:id', (req, res) => {
         reviews: reviewsWithScores, // Pass processed reviews
         userEmail,                   // Pass user's email
         firstName,                   // Pass user's first name
-        lastName,                    // Pass user's last name
+        lastName,
+        user,                    // Pass user's last name
       });
     });
   });
 });
 
+app.delete('/review/:id', (req, res) => {
+  const reviewId = req.params.id;
+
+  // Query to delete the review by its ID
+  const deleteQuery = 'DELETE FROM course_reviews WHERE id = ?';
+
+  con.query(deleteQuery, [reviewId], (err, result) => {
+    if (err) {
+      console.error('Error deleting review:', err);
+      return res.status(500).send('Error deleting review.');
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).send('Review not found.');
+    }
+    if (req.session.user.role !== 'admin') {
+      return res.status(403).send('Unauthorized action.');
+    }
+
+    res.status(200).send('Review deleted successfully.');
+  });
+});
 
 
 
@@ -530,6 +559,152 @@ app.get('/review/:course_id', isAuthenticated, (req, res) => {
 });
 
 
+// Define the sendDeletionNotification function
+// Function to send a deletion notification
+
+let notifications = [];  // In-memory storage for notifications
+
+// Simulate notification insertion
+function sendDeletionNotification(studentId, courseName) {
+    const notificationMessage = `Your review for the course '${courseName}' has been deleted.`;
+    const notification = {
+        studentId: 13,
+        message: notificationMessage,
+        createdAt: new Date().toLocaleString(),
+    };
+    notifications.push(notification);  // Store notification in memory
+    console.log('Notification sent successfully:', notification);
+}
+
+// Endpoint to fetch notifications
+app.get('/api/notifications', (req, res) => {
+    const studentId = req.session.user.id;
+    if (!studentId) {
+        return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    // Filter notifications by studentId
+    const userNotifications = notifications.filter(notif => notif.studentId === studentId);
+    res.json({ notifications: userNotifications });
+});
+
+
+
+
+
+
+// Existing delete review route
+app.delete('/review/delete/:reviewId', (req, res) => {
+  const reviewId = req.params.reviewId;
+  const studentId = req.body.studentId; // Assuming studentId is passed in the request body
+  console.log('Received reviewId:', reviewId);
+  console.log('Student ID:', studentId);
+
+  // MySQL query to get the course name using course_id from the course_reviews table
+  const getCourseQuery = `
+      SELECT c.name AS course_name
+      FROM course_reviews r
+      JOIN coursee c ON r.course_id = c.id
+      WHERE r.id = ?
+  `;
+
+  // MySQL query to delete the review by its ID
+  const deleteQuery = 'DELETE FROM course_reviews WHERE id = ?';
+
+  // Fetch course name before deleting the review
+  con.query(getCourseQuery, [reviewId], (err, result) => {
+      if (err) {
+          console.error('Error fetching course name:', err);
+          return res.status(500).json({ success: false, message: 'Error fetching course information.' });
+      }
+
+      if (result.length === 0) {
+          return res.status(404).json({ success: false, message: 'Review not found.' });
+      }
+
+      const courseName = result[0].course_name;  // Get the course name from the result
+
+      // Now, delete the review
+      con.query(deleteQuery, [reviewId], (err, result) => {
+          if (err) {
+              console.error('Error deleting review:', err);
+              return res.status(500).json({ success: false, message: 'Error deleting review.' });
+          }
+
+          if (result.affectedRows === 0) {
+              return res.status(404).json({ success: false, message: 'Review not found.' });
+          }
+
+          // Send notification to the student about the deleted review
+          sendDeletionNotification(studentId, courseName);
+
+          return res.json({ success: true, message: 'Review deleted successfully.' });
+      });
+  });
+});
+// app.delete('/review/delete/:reviewId', (req, res) => {
+//   const reviewId = req.params.reviewId;
+//   const studentId = req.body.studentId;
+//   const courseName = req.body.courseName;
+
+//   if (!studentId || !courseName) {
+//     return res.status(400).json({ success: false, message: 'Missing studentId or courseName.' });
+//   }
+
+//   const deleteQuery = 'DELETE FROM course_reviews WHERE id = ?';
+//   con.query(deleteQuery, [reviewId], (err, result) => {
+//     if (err) {
+//       console.error('Error deleting review:', err);
+//       return res.status(500).json({ success: false, message: 'Error deleting review.' });
+//     }
+
+//     if (result.affectedRows === 0) {
+//       return res.status(404).json({ success: false, message: 'Review not found.' });
+//     }
+
+//     // Insert a notification for the student who made the review
+//     const notificationQuery = 'INSERT INTO notifications (studentid, title, message) VALUES (?, ?, ?)';
+//     const title = 'Your review has been deleted';
+//     const message = `The review for the course "${courseName}" has been deleted.`;
+
+//     con.query(notificationQuery, [studentId, title, message], (err) => {
+//       if (err) {
+//         console.error('Error inserting notification:', err);
+//         return res.status(500).json({ success: false, message: 'Error sending notification.' });
+//       }
+
+//       return res.json({
+//         success: true,
+//         message: 'Review deleted and notification sent.',
+//         courseName: courseName,
+//       });
+//     });
+//   });
+// });
+
+
+// app.get('/api/notifications', (req, res) => {
+//   const studentId = req.query.studentId;
+//   const query = 'SELECT title, message FROM notifications WHERE studentid = ? ORDER BY created_at DESC';
+  
+//   con.query(query, [studentId], (err, result) => {
+//       if (err) {
+//           return res.status(500).json({ error: 'Error fetching notifications' });
+//       }
+//       res.json({ notifications: result });
+//   });
+// });
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -561,6 +736,9 @@ app.get('/post', (req, res) => {
 app.get('/notireview', (req, res) => {
   res.sendFile(path.join(__dirname, 'views/notireview.html')); // ปรับ path ให้ถูกต้อง
 });
+// app.get('/notireview', (req, res) => {
+//   res.render('notifications');  // Ensure 'post.ejs' exists in your views folder
+// });
 
 app.get('/noticommu', (req, res) => {
   res.sendFile(path.join(__dirname, 'views/noticommu.html')); // ปรับ path ให้ถูกต้อง
@@ -706,165 +884,7 @@ app.get('/your-post-route/:postId', (req, res) => {
 
 
 
-// ********************************************************************************************************************************************
 
-// app.get('/getStudents', (req, res) => {
-//   const query = `
-//     SELECT student.email, coursee.code as course_code
-//     FROM student
-//     LEFT JOIN student_course_history ON student.studentid = student_course_history.studentid
-//     LEFT JOIN coursee ON student_course_history.course_id = coursee.id;
-//   `;
-  
-//   con.query(query, (err, results) => {
-//     if (err) {
-//       console.error('Error executing query:', err); // Log the error
-//       return res.status(500).send('Error retrieving students: ' + err);
-//     }
-//     console.log('Fetched students data:', results); // Log the result of the query
-//     res.json(results);  // Send the results as JSON
-//   });
-// });
-
-
-// POST students and course codes
-// app.post('/uploadStudents', (req, res) => {
-//   const studentsData = req.body.data;
-
-//   // Insert students into the 'students' table and handle course enrollment
-//   const insertStudentQuery = `
-//     INSERT INTO student (email, facultyid, majorid, role) 
-//     VALUES (?, ?, ?, ?)
-//     ON DUPLICATE KEY UPDATE email = VALUES(email)
-//   `;
-
-//   studentsData.forEach(student => {
-//     // Insert student into the 'students' table
-//     con.query(insertStudentQuery, [student.Email, student.Facultyid, student.Majorid, student.Role], (err, result) => {
-//       if (err) return res.status(500).send('Error inserting student: ' + err);
-
-//       // After inserting student, get the student ID
-//       const studentId = result.insertId || result.insertId;  // Use existing or newly inserted ID
-
-//       // Insert course enrollment into the 'student_courses' table
-//       const insertStudentCoursesQuery = `
-//         INSERT INTO student_course_history (studentid, course_id) 
-//         SELECT ?, id FROM coursee WHERE code = ?
-//       `;
-
-//       con.query(insertStudentCoursesQuery, [studentId, student.CourseCode], (err) => {
-//         if (err) return res.status(500).send('Error enrolling student in course: ' + err);
-//       });
-//     });
-//   });
-
-//   res.status(200).send('Students data uploaded successfully');
-// });
-
-
-// ---------------------------------------------------------
-// app.post('/uploadStudents', (req, res) => {
-//   const students = req.body.data;  // Data sent from the frontend
-  
-//   students.forEach(student => {
-//     const { email, courseCode, facultyid, majorid, role } = student;
-
-//     // Check if student with the given email already exists
-//     const checkStudentQuery = 'SELECT studentid FROM student WHERE email = ?';
-
-//     con.query(checkStudentQuery, [email], (err, existingStudent) => {
-//       if (err) {
-//         console.error('Error checking student data:', err);
-//         return res.status(500).send('Error checking student data');
-//       }
-
-//       // If student exists, use the existing studentid
-//       if (existingStudent.length > 0) {
-//         const studentId = existingStudent[0].studentid;
-//         console.log('Student already exists with ID:', studentId);
-
-//         // Check if the student is already enrolled in the course
-//         const checkCourseEnrollmentQuery = `
-//           SELECT * FROM student_course_history
-//           WHERE studentid = ? AND course_id = (
-//             SELECT id FROM coursee WHERE code = ?
-//           )
-//         `;
-//         con.query(checkCourseEnrollmentQuery, [studentId, courseCode], (err, existingEnrollment) => {
-//           if (err) {
-//             console.error('Error checking course enrollment:', err);
-//             return res.status(500).send('Error checking course enrollment');
-//           }
-
-//           // If the student is not already enrolled in the course, add the course enrollment
-//           if (existingEnrollment.length === 0) {
-//             const enrollStudentInCourseQuery = `
-//               INSERT INTO student_course_history (studentid, course_id)
-//               SELECT ?, id FROM coursee WHERE code = ?
-//             `;
-//             con.query(enrollStudentInCourseQuery, [studentId, courseCode], (err) => {
-//               if (err) {
-//                 console.error('Error enrolling student in course:', err);
-//                 return res.status(500).send('Error enrolling student in course');
-//               }
-//               console.log('Course data inserted for student (existing)');
-//             });
-//           } else {
-//             console.log('Student is already enrolled in this course');
-//           }
-//         });
-//       } else {
-//         // If student doesn't exist, insert the student
-//         const insertStudentQuery = `
-//           INSERT INTO student (email, facultyid, majorid, role)
-//           VALUES (?, ?, ?, ?)
-//         `;
-
-//         con.query(insertStudentQuery, [email, facultyid, majorid, role], (err, result) => {
-//           if (err) {
-//             console.error('Error inserting student data:', err);
-//             return res.status(500).send('Failed to insert student data');
-//           }
-
-//           const studentId = result.insertId;
-//           console.log('New student inserted with ID:', studentId);
-
-//           // Insert into the student_course_history table (connect the student with the course)
-//           const insertCourseQuery = `
-//             INSERT INTO student_course_history (studentid, course_id)
-//             SELECT ?, id FROM coursee WHERE code = ?
-//           `;
-//           con.query(insertCourseQuery, [studentId, courseCode], (err) => {
-//             if (err) {
-//               console.error('Error enrolling student in course:', err);
-//               return res.status(500).send('Error enrolling student in course');
-//             }
-//             console.log('Course data inserted for new student');
-//           });
-//         });
-//       }
-//     });
-//   });
-
-//   res.status(200).send('Student data uploaded successfully');
-// });
-
-// app.get('/getStudents', (req, res) => {
-//   const query = `
-//     SELECT student.email, coursee.code AS course_code
-//     FROM student
-//     INNER JOIN student_course_history ON student.studentid = student_course_history.studentid
-//     INNER JOIN coursee ON student_course_history.course_id = coursee.id
-//   `;
-  
-//   con.query(query, (err, result) => {
-//     if (err) {
-//       console.error('Error fetching student data:', err);
-//       return res.status(500).send('Failed to fetch student data');
-//     }
-//     res.json(result);
-//   });
-// });
 // -----------------------------------------------------------
 app.post('/api/import', upload.single('file'), (req, res) => {
   if (!req.file) {
@@ -966,7 +986,6 @@ app.get('/api/getUploadedData', (req, res) => {
 app.delete('/api/deleteData', (req, res) => {
   const { email, courseCode } = req.body;
 
-  // Assuming you're deleting the data from the student_course_history table
   const query = `
       DELETE FROM student_course_history
       WHERE studentid = (SELECT studentid FROM student WHERE email = ?)
@@ -982,6 +1001,25 @@ app.delete('/api/deleteData', (req, res) => {
       res.json({ message: 'Data deleted successfully.' });
   });
 });
+
+app.get('/api/getAllData', (req, res) => {
+  const query = `
+      SELECT s.email, c.code AS courseCode
+      FROM student_course_history sch
+      JOIN student s ON sch.studentid = s.studentid
+      JOIN coursee c ON sch.course_id = c.id;
+  `;
+
+  con.query(query, (err, results) => {
+      if (err) {
+          console.error('Error fetching data:', err);
+          return res.status(500).json({ message: 'Error fetching data from the database.' });
+      }
+
+      res.json(results); // Return data in the correct format
+  });
+});
+
 
 
 
@@ -1090,32 +1128,28 @@ app.post('/bookmark/remove', isAuthenticated, (req, res) => {
 
 
 // Endpoint สำหรับลบคอร์สด้วย id
-function deleteCourse(id) {
-  console.log("Attempting to delete course with id:", id); // ตรวจสอบค่า id
-  fetch(`http://localhost:3000/deleteCourse/${id}`, {
-    method: 'DELETE',
-    headers: {
-      'Content-Type': 'application/json'
-    }
-  })
-    .then(response => {
-      if (!response.ok) {
-        return response.text().then(text => {
-          throw new Error(`Failed to delete course: ${text}`);
-        });
+// Assuming you are using Express.js
+app.delete('/deleteCourse/:id', async (req, res) => {
+  const courseId = req.params.id;
+
+  try {
+      // First, delete related bookmarks
+      await con.promise().query('DELETE FROM bookmarks WHERE course_id = ?', [courseId]);
+
+      // Now delete the course from the `coursee` table
+      const [result] = await con.promise().query('DELETE FROM coursee WHERE id = ?', [courseId]);
+
+      // Check if any rows were affected
+      if (result.affectedRows > 0) {
+          res.status(200).json({ message: 'Course and related bookmarks deleted successfully' });
+      } else {
+          res.status(404).json({ message: 'Course not found' });
       }
-      return response.json();
-    })
-    .then(data => {
-      console.log(data);
-      alert("Course deleted successfully!");
-      fetchCourses(); // ดึงข้อมูลใหม่หลังลบสำเร็จ
-    })
-    .catch(error => {
-      console.error('Error:', error);
-      alert("Failed to delete course: " + error.message);
-    });
-}
+  } catch (err) {
+      console.error('Error deleting course:', err);
+      res.status(500).json({ message: 'Error deleting course', error: err.message });
+  }
+});
 
 
 
@@ -1126,18 +1160,20 @@ app.post('/uploadCourses', (req, res) => {
   try {
     const coursesData = req.body.data;
 
-    console.log("Data received from client:", coursesData);
+    console.log('Data received from client:', coursesData);
 
-    if (!coursesData || coursesData.length === 0) {
+    // Validate input data
+     if (!coursesData || coursesData.length === 0) {
       console.log('No data received from the client.');
       return res.status(400).json({ message: 'No data received' });
     }
 
+    // Remove header row (first row) and process remaining rows
     const rows = coursesData.slice(1);
-    const values = rows.map(row => {
-      const code = row[7];
+    const values = rows.map((row) => {
+      const code = row[7]; // Assuming "code" is at index 7
       if (!code) {
-        console.warn('Skipping row due to empty code:', row);
+        console.warn('Skipping row due to missing "code":', row);
         return null;
       }
       return {
@@ -1152,17 +1188,18 @@ app.post('/uploadCourses', (req, res) => {
         rating: row[8],
         academic_year: row[9],
         semester: row[10],
-        type: row[11]  // Assuming 'type' is in column index 11
+        type: row[11], // Default value for "type"
       };
-    }).filter(row => row !== null);
+    }).filter((row) => row !== null); // Remove invalid rows
 
-    console.log("Filtered values for insertion:", values);
+    console.log('Filtered values for insertion:', JSON.stringify(values, null, 2));
 
     if (values.length === 0) {
-      console.warn('No valid rows to insert after filtering.');
-      return res.status(400).json({ message: 'No valid rows to insert' });
+      console.error('No valid rows to insert after filtering.');
+      return res.status(400).json({ message: 'No valid rows to insert.' });
     }
 
+    // SQL query for inserting or updating courses
     const insertSql = `
       INSERT INTO coursee (id, name, school, field_of_study, credit, course_status, description, code, rating, academic_year, semester, type)
       VALUES ?
@@ -1179,42 +1216,52 @@ app.post('/uploadCourses', (req, res) => {
         type = VALUES(type)
     `;
 
-    con.query(insertSql, [values.map(Object.values)], (err) => {
+    const valuesArray = values.map(Object.values); // Convert object array to value array
+
+    // Insert or update the courses
+    con.query(insertSql, [valuesArray], (err) => {
       if (err) {
         console.error('Database error during insert/update:', err);
-        return res.status(500).json({ message: 'Database insertion failed', error: err });
+        return res.status(500).json({ message: 'Database insertion failed.', error: err });
       }
 
-      const codesInExcel = values.map(course => course.code);
+      console.log('Insert/Update successful.');
+
+      // Collect all course codes from the current upload
+      const codesInExcel = values.map((course) => course.code);
+
+      // SQL query to delete outdated courses
       const deleteSql = `
-        DELETE FROM coursee 
+        DELETE FROM coursee
         WHERE code NOT IN (?)
       `;
 
+      // Delete courses not in the current upload
       con.query(deleteSql, [codesInExcel], (err) => {
         if (err) {
           console.error('Database error during delete:', err);
-          return res.status(500).json({ message: 'Database deletion failed', error: err });
+          return res.status(500).json({ message: 'Database deletion failed.', error: err });
         }
 
-        console.log('Courses successfully uploaded and old courses deleted.');
-        res.status(200).json({ message: 'Courses uploaded and old courses deleted successfully!' });
+        console.log('Outdated courses successfully deleted.');
+        res.status(200).json({ message: 'Courses uploaded and outdated courses deleted successfully!' });
       });
     });
   } catch (error) {
     console.error('Error in /uploadCourses route:', error);
-    return res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ message: 'Server error.', error: error.message });
   }
 });
 
 
-
-
-
-
+// Endpoint: Get Courses
 app.get('/getCourses', (req, res) => {
   console.log('Received request on /getCourses');
-  const selectSql = `SELECT id, name, school, field_of_study, credit, course_status, description, code, rating, academic_year, semester, type FROM coursee`;
+
+  const selectSql = `
+    SELECT id, name, school, field_of_study, credit, course_status, description, code, rating, academic_year, semester, type
+    FROM coursee
+  `;
 
   con.query(selectSql, (err, results) => {
     if (err) {
@@ -1227,12 +1274,8 @@ app.get('/getCourses', (req, res) => {
   });
 });
 
-
-
-
 const cors = require('cors');
 app.use(cors());
-
 
 
 // ------------- WITH DASHBOARD ------------- //
@@ -1290,9 +1333,7 @@ app.get('/reviewsqty', (req, res) => {
   const sql = `
     SELECT 
       (SELECT COUNT(*) FROM student_course_history) AS total_reviews, 
-      (SELECT COUNT(*) FROM student_course_history 
-       JOIN coursee ON student_course_history.course_id = coursee.id 
-       WHERE coursee.type = 'Major Elective') AS total_major_reviews,
+      (SELECT COUNT(*) FROM coursee) AS total_courses_open,
       (SELECT COUNT(*) FROM student_course_history 
        JOIN coursee ON student_course_history.course_id = coursee.id 
        WHERE coursee.type = 'Free Elective') AS total_free_reviews
@@ -1303,19 +1344,20 @@ app.get('/reviewsqty', (req, res) => {
       return res.status(500).json({ errMsg: 'Error fetching data' });
     }
 
-    const totalReviews = results[0].total_reviews; // Correctly get total review count
-    const totalMajorReviews = results[0].total_major_reviews; // Total major elective reviews count
+    const totalReviews = results[0].total_reviews; // Total reviews count
+    const totalCoursesOpen = results[0].total_courses_open; // Total courses open count
     const totalFreeReviews = results[0].total_free_reviews; // Total free elective reviews count
 
     // Send the results back as JSON
     res.json({
       res: true,
       totalReviews,
-      totalMajorReviews,
+      totalCoursesOpen,
       totalFreeReviews
     });
   });
 });
+
 
 
 
@@ -1462,13 +1504,20 @@ app.use("/assets", express.static(path.join(__dirname, "assets")));
 // Set static routes for other HTML pages
 app.get("/home", isAuthenticated, (req, res) => res.sendFile(path.join(__dirname, "views/homepage.html")));
 app.get("/login", (req, res) => res.sendFile(path.join(__dirname, "views/login0.html")));
-app.get("/profile", (req, res) => {
-  // ตัวอย่างข้อมูลที่ส่งไปยังหน้า profile.ejs
-  const user = req.session.user || { username: "Guest", role: "visitor" };
+// Assuming you're using Express.js or similar backend framework
+app.get('/profile', (req, res) => {
+  const userinfo = {
+    username: 'WACHIRARAT',  // This is the original username if you need it.
+    fullname: 'WACHIRARAT PUKANAD',  // Full name to be used as the username
+    email: '6431501100@lamduan.mfu.ac.th',
+    image: 'https://lh3.googleusercontent.com/a/ACg8ocLU90QliI7ynPNDpdAsmRk1D4RV5qJxJMABM9KBZ0FB0GNsnAw=s96-c'
+  };
+  
 
-  // ประมวลผลไฟล์ EJS พร้อมข้อมูล
-  res.render("profile", { user });
+  // Pass the userinfo object to the template
+  res.render('profile', { user: userinfo });
 });
+
 
 
 

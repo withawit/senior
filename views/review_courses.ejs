@@ -12,7 +12,13 @@
     <script src="../assets/lib/fusioncharts/js/fusioncharts.js"></script>
     <script src="../assets/lib/fusioncharts/js/themes/fusioncharts.theme.fusion.js"></script>
 </head>
-
+<style>
+    .img-profile {
+        border-radius: 50%;
+        width: 35px;
+        margin-top: 4rem;
+    }
+</style>
 
 <body>
     <!---------------------------------- navi --------------------------------------------->
@@ -27,10 +33,11 @@
                 <li class="mt-4"><a href="/community"><i class="bi bi-chat"></i></a></li>
                 <li class="mt-4"><a href="/bookmark"><i class="bi bi-star"></i></a></li>
                 <li class="mt-4"><a href="/notification"><i class="bi bi-bell"></i></a></li>
-                <li class="mt-4"><a href="/history"><i class="bi bi-clock-history"></i></li>
-                <a class="btn" onclick="logout()">
-                    <div id="user-profile"></div>
-                </a>
+                <li class="mt-4"><a href="/history"><i class="bi bi-pencil-square"></i></li>
+                    <a class="btn" onclick="profile()">
+                        <div id="user-profile"></div>
+                    </a>
+
 
             </div>
         </div>
@@ -158,7 +165,24 @@
     
 
     <!-- JavaScript to handle radio button change events -->
+    <script src="../assets/css/load-html.js"></script>
     <script>
+        $(document).ready(() => {
+        const userinfo = JSON.parse(sessionStorage.getItem('userinfo'));
+        console.log(userinfo)
+        if (userinfo && userinfo.image) {
+            $('#user-profile').html(`
+                <img class="img-profile" crossorigin="anonymous" src="${userinfo.image}" alt="User Profile" referrerpolicy="no-referrer" />
+            `);
+        } else {
+            console.log("No user image available");
+            $('#user-profile').html(`<p>No profile image available.</p>`);
+        }
+
+        get_review_qty();
+        get_review_chart();
+        
+    });
         const ratingInputs = document.querySelectorAll('input[name^="rate"]');
         ratingInputs.forEach(input => {
             input.addEventListener('change', () => {
@@ -166,6 +190,9 @@
                 console.log("Rating:", ratingValue);
             });
         });
+        function profile(){
+    window.location.href='/profile';
+}
     </script>
 
 </body>

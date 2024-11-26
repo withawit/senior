@@ -24,9 +24,11 @@
       width: 150px;
     }
 
-    img.profile {
-      margin-top: 150%;
-    }
+    .img-profile {
+            border-radius: 50%;
+            width: 35px;
+            margin-top: 4rem;
+        }
   </style>
 </head>
 
@@ -37,30 +39,30 @@
       <img src="../assets/images/สัญลักษณ์ประจำมหาวิทยาลัยแม่ฟ้าหลวง.png" width="50,70">
       <p class="text-center" style="color: #A60303">MFU</p>
       <hr>
-      <li class="mt-5"> <a href="/db"><i class="bi bi-bar-chart"></i></a> </li>
-      <li class="mt-5"><a href="/listcourse"><i class="bi bi-map"></i></a></li>
-      <li class="mt-5"><a href="/search"><i class="bi bi-search"></i></a></li>
-      <li class="mt-5"><a href="/community"><i class="bi bi-chat"></i></a></li>
-      <li class="mt-5"><a href="/bookmark"><i class="bi bi-star"></i></a></li>
-      <li class="mt-5"><a href="/notification"><i class="bi bi-bell"></i></a></li>
-      <a href="/profile">
-        <img class="profile" src="/assets/images/Screenshot 2024-04-09 034908.png" width="51" height="48" alt="Profile">
+      <li class="mt-5"> <a href="/dashboard"><i class="bi bi-bar-chart"></i></a> </li>
+      <li class="mt-4"><a href="/listcourse"><i class="bi bi-map"></i></a></li>
+      <li class="mt-4"><a href="/search"><i class="bi bi-search"></i></a></li>
+      <li class="mt-4"><a href="/community"><i class="bi bi-chat"></i></a></li>
+      <li class="mt-4"><a href="/bookmark"><i class="bi bi-star"></i></a></li>
+      <li class="mt-4"><a href="/notification"><i class="bi bi-bell"></i></a></li>
+      <li class="mt-4"><a href="/history"><i class="bi bi-clock-history"></i></li>
+      <a class="btn" onclick="profile()">
+          <div id="user-profile"></div>
       </a>
 
-    </div>
+  </div>
   </div>
 
   <div class="container">
     <div class="jumbotron">
-      <h1 class="text-primary text-center"><span class="fa fa-user"></span> Profile Information</h1>
+      <h1 class=" text-center" style="color: #A60303;"><span class="fa fa-user" style="color: #A60303;"> </span>  Profile Information</h1>
       <div class="row">
         <div class="col-sm-6">
           <div class="well">
             <p>
-              <strong>Id:</strong>
-              <%= user.id %> <br> <!-- แสดง id ของผู้ใช้ -->
-                <strong>Username:</strong>
-                <%= user.username %> <!-- แสดงชื่อผู้ใช้ -->
+              <strong>Email:</strong> <%= user.email %><br>
+      <strong>Full Name:</strong> <%= user.fullname %><br>
+
             </p>
           </div>
         </div>
@@ -71,8 +73,24 @@
     <input class="btn btn-primary btn-logout" type="submit" value="LOG OUT" onclick="logoutUser()"
       style="background-color: #A60303; color: white;">
   </div>
-
+  <script src="../assets/css/load-html.js"></script>
   <script>
+     $(document).ready(() => {
+                // Fetch user info from sessionStorage
+                const userinfo = JSON.parse(sessionStorage.getItem('userinfo'));
+                console.log(userinfo);
+                if (userinfo && userinfo.image) {
+                    $('#user-profile').html(`
+                        <img class="img-profile" crossorigin="anonymous" src="${userinfo.image}" alt="User Profile" referrerpolicy="no-referrer" />
+                    `);
+                } else {
+                    console.log("No user image available");
+                    $('#user-profile').html(`<p>No profile image available.</p>`);
+                }
+
+                // Fetch notifications
+                fetchNotifications();
+            });
     function logoutUser() {
       window.location.href = '/login'; // This assumes you have a route like '/logout' that logs the user out
     }

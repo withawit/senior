@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>List of course</title>
+    <title>List of Courses</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="../assets/css/navbar.css">
@@ -15,6 +15,7 @@
     <script src="../assets/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script type="text/javascript" src="https://unpkg.com/xlsx@0.15.1/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.15.1/dist/xlsx.full.min.js"></script>
 </head>
 
 <body>
@@ -36,12 +37,12 @@
         <h1 class="head text-left" style="color: #A60303;">List of courses</h1>
         <hr class="list">
         <form>
-            <div class="import"><b>Import</b></div>
+            <div class="import"><b> <label for="" class="form-label">Import</label></b></div>
             <div class="import1">
                 <input type="file" id="excel_file" />
             </div>
     </div>
-    <div id="excel_data" class="mt-5"> </div>
+    <div id="excel_data" class="container-fluid mt-5"> </div>
     </form>
     </div>
     </div>
@@ -51,105 +52,187 @@
             fetchCourses();
         });
 
+        // Fetch courses and display in table
         function fetchCourses() {
-            fetch('http://localhost:3000/getCourses', {
-                method: 'GET'
-            })
+        fetch('http://localhost:3000/getCourses')
             .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
+                if (!response.ok) throw new Error('Failed to fetch courses.');
                 return response.json();
             })
-            .then(data => {
-                displayTable(data);
-            })
+            .then(data => displayTable(data))
             .catch(error => {
                 console.error('Error fetching courses:', error);
-                document.getElementById('excel_data').innerHTML = '<div class="alert alert-danger">Failed to load courses from the database.</div>';
+                document.getElementById('excel_data').innerHTML =
+                    '<div class="alert alert-danger">Failed to load courses. Please try again later.</div>';
             });
-        }
+    }
 
-        // อัปโหลดและแปลง Excel
-        document.getElementById('excel_file').addEventListener('change', (event) => {
-            if (!['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'].includes(event.target.files[0].type)) {
-                alert("Only .xlsx or .xls file format are allowed");
-                excel_file.value = '';
-                return false;
-            }
+    function displayTable(data) {
+    if (!data || data.length === 0) {
+        document.getElementById('excel_data').innerHTML = '<div class="alert alert-warning">No courses available.</div>';
+        return;
+    }
 
-            const reader = new FileReader();
-            reader.readAsArrayBuffer(event.target.files[0]);
-
-            reader.onload = function (event) {
-                const data = new Uint8Array(reader.result);
-                const work_book = XLSX.read(data, { type: 'array' });
-                const sheet_name = work_book.SheetNames[0];
-                const sheet_data = XLSX.utils.sheet_to_json(work_book.Sheets[sheet_name], { header: 1 });
-
-                if (sheet_data.length > 0) {
-                    // ส่งข้อมูลไปยังเซิร์ฟเวอร์
-                    fetch('http://localhost:3000/uploadCourses', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ data: sheet_data })
-                    })
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Failed to upload courses');
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        alert("Courses uploaded successfully!");
-                        fetchCourses(); // ดึงข้อมูลใหม่หลังอัปโหลดสำเร็จ
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert("Failed to upload courses.");
-                    });
-
-                    excel_file.value = ''; // รีเซ็ตไฟล์อินพุต
-                }
-            }
-        });
-
-        function displayTable(data) {
-            let table_output = '<table class="table table-striped table-bordered">';
-            if (data.length > 0) {
-                table_output += '<thead><tr>';
-                Object.keys(data[0]).forEach(key => {
-                    table_output += `<th>${key}</th>`;
-                });
-                table_output += '<th>Action</th></tr></thead>';
-                
-                table_output += '<tbody>';
-                data.forEach(row => {
-                    table_output += '<tr>';
-                    Object.values(row).forEach(cell => {
-                        table_output += `<td>${cell}</td>`;
-                    });
-                    table_output += `
+    let table = `
+        <table class="table table-striped table-bordered">
+            <thead>
+                <tr>
+                    ${Object.keys(data[0]).map(key => `<th>${key}</th>`).join('')}
+                    <th>View</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${data.map(row => `
+                    <tr>
+                        ${Object.values(row).map(cell => `<td>${cell}</td>`).join('')}
+                        <td>
+                            <a href="/course/${row.id}" class="btn btn-primary" style="padding: 10px 20px; font-size: 16px;">
+                                View
+                            </a>
+                        </td>
                         <td>
                             <a href="#" class="btn btn-danger" style="padding: 10px 20px; font-size: 16px;" onclick="deleteCourse(${row.id}); return false;">
                                 Delete
                             </a>
                         </td>
-                    `;
-                    table_output += '</tr>';
-                });
-                table_output += '</tbody>';
-            } else {
-                table_output += '<tr><td colspan="9">No courses available</td></tr>';
-            }
-            table_output += '</table>';
-            document.getElementById('excel_data').innerHTML = table_output;
-        }
+                    </tr>`).join('')}
+            </tbody>
+        </table>`;
+    document.getElementById('excel_data').innerHTML = table;
+}
 
-       // ฟังก์ชันลบข้อมูลคอร์ส
-       function deleteCourse(id) {
+
+    function viewReviews(courseId) {
+        // Fetch reviews for the selected course
+        fetch(`http://localhost:3000/review/${courseId}`)
+            .then(response => {
+                if (!response.ok) throw new Error('Failed to fetch reviews.');
+                return response.json();
+            })
+            .then(reviews => {
+                if (reviews.length === 0) {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'No Reviews',
+                        text: 'No reviews available for this course.',
+                    });
+                    return;
+                }
+
+                let reviewContent = reviews.map(review => `
+                    <div class="review">
+                        <p><strong>User:</strong> ${review.user}</p>
+                        <p><strong>Rating:</strong> ${review.rating}</p>
+                        <p><strong>Comment:</strong> ${review.comment}</p>
+                        <hr>
+                    </div>
+                `).join('');
+
+                Swal.fire({
+                    title: `Reviews for Course ID: ${courseId}`,
+                    html: `<div style="max-height: 300px; overflow-y: auto;">${reviewContent}</div>`,
+                    width: '600px',
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching reviews:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Failed to fetch reviews.',
+                });
+            });
+    }
+
+        // Handle file upload and send to server
+        document.getElementById('excel_file').addEventListener('change', (event) => {
+            const file = event.target.files[0];
+
+            if (!file || !['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'].includes(file.type)) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Invalid File Type',
+                    text: 'Only .xlsx or .xls files are allowed.'
+                });
+                event.target.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function () {
+                try {
+                    const data = new Uint8Array(reader.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const sheetData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1 });
+
+                    if (sheetData.length <= 1) {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Empty File',
+                            text: 'No valid data found in the file.'
+                        });
+                        return;
+                    }
+
+                    console.log('Parsed Excel Data:', sheetData);
+
+                    // Send data to server
+                    fetch('http://localhost:3000/uploadCourses', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ data: sheetData })
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.json().then(errorData => {
+                                throw new Error(`Error: ${response.status} - ${errorData.message}`);
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(() => {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Uploaded Successfully',
+                            text: 'Courses uploaded successfully!',
+                            timer: 1500,
+                            showConfirmButton: false
+                        });
+                        fetchCourses(); // Refresh courses
+                    })
+                    .catch(error => {
+                        console.error('Upload Error:', error);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Upload Failed',
+                            text: error.message || 'An error occurred while uploading courses.'
+                        });
+                    });
+                } catch (error) {
+                    console.error('File Processing Error:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Processing Error',
+                        text: 'An error occurred while processing the file.'
+                    });
+                }
+            };
+
+            reader.onerror = function () {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'File Read Error',
+                    text: 'Failed to read the selected file.'
+                });
+            };
+
+            reader.readAsArrayBuffer(file);
+        });
+
+        // Delete a course by its code
+        function deleteCourse(id) {
             Swal.fire({
                 icon: "warning",
                 title: "Warning",

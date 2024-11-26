@@ -18,7 +18,6 @@
             width: 35px;
             margin-top: 4rem;
         }
-
     </style>
 </head>
 
@@ -35,11 +34,10 @@
             <li class="mt-4"><a href="/community"><i class="bi bi-chat"></i></a></li>
             <li class="mt-4"><a href="/bookmark"><i class="bi bi-star"></i></a></li>
             <li class="mt-4"><a href="/notification"><i class="bi bi-bell"></i></a></li>
-            <li class="mt-4"><a href="/history"><i class="bi bi-clock-history"></i></li>
-            <a class="btn" onclick="logout()">
-                <div id="user-profile"></div>
-            </a>
-
+            <li class="mt-4"><a href="/history"><i class="bi bi-pencil-square"></i></li>
+                <a class="btn" onclick="profile()">
+                    <div id="user-profile"></div>
+                </a>
         </div>
     </div>
 
@@ -76,7 +74,8 @@
     </div>
 </div>
 
-    <!-- Major Elective Courses Table -->
+    <!-- Major Elective Courses Table (only visible if showMajorElective is true) -->
+    <% if (showMajorElective) { %>
     <div class="col1">
         <div class="dropdown-header" onclick="toggleTable('mytable2', 'dropdownIcon2')">
             <p class="mt mt-5">Major Elective Courses</p>
@@ -101,9 +100,11 @@
                 <% }) %>
             </tbody>
         </table>
+        </div>
     </div>
-</div>
-</div>
+    <% } %> <!-- End if condition for Major Elective -->
+
+    </div>
 
     <script>
         function toggleTable(tableId, iconId) {
@@ -137,6 +138,9 @@
             get_review_chart();
             
         });
+        function profile(){
+    window.location.href='/profile';
+}
 </script>
 </body>
 
