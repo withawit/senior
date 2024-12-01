@@ -11,6 +11,7 @@ const formidable = require('formidable');
 const XLSX = require('xlsx');
 const multer = require("multer");
 const fs = require("fs");
+const mysql = require('mysql');
 
 const bodyParser = require('body-parser');
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -19,7 +20,21 @@ app.use(bodyParser.json());
 
 const upload = multer({ dest: "uploads/" });
 
+app.get('/getStudentId', (req, res) => {
+  const email = req.query.email;
 
+  // Query the database for studentid using email
+  con.query('SELECT studentid FROM students WHERE email = ?', [email], (err, results) => {
+    if (err) {
+      return res.status(500).json({ message: 'Database error' });
+    }
+    if (results.length > 0) {
+      res.json({ studentid: results[0].studentid });
+    } else {
+      res.status(404).json({ message: 'Student not found' });
+    }
+  });
+});
 
 
 
@@ -62,7 +77,7 @@ app.use(session({
   secret: 'SECRET',
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 60000 * 60 } // Session expires in 1 hour
+  cookie: { maxAge: 24 * 60 * 60 * 1000 } // Session expires in 1 hour
 }));
 
 // initialize passport
@@ -95,26 +110,24 @@ function isAdmin(req, res, next) {
 
 
 
+
 // =================== Login Route ===================
 app.post("/login", isAuthenticated, (req, res) => {
   const { username, password } = req.body;
 
-  // Query to check if the username exists in the database
-  const sql = "SELECT id, username, password, role FROM user WHERE username = ?";
+  // คิวรีฐานข้อมูลและยืนยันตัวผู้ใช้
+  const sql = "SELECT id, username, password, role, studentid FROM user WHERE username = ?";
   con.query(sql, [username], (err, results) => {
-
     if (err) {
       return res.status(500).send("Database error.");
     }
     if (results.length === 0) {
-      return res.status(401).json({ message: "Wrong username or password" }); // No user found
+      return res.status(401).json({ message: "Wrong username or password" });
     }
 
     const user = results[0];
 
-    // Compare the plain password with the hashed password in the database
     bcrypt.compare(password, user.password, (err, isMatch) => {
-
       if (err) {
         return res.status(500).send("Error checking password.");
       }
@@ -122,17 +135,12 @@ app.post("/login", isAuthenticated, (req, res) => {
         return res.status(401).json({ message: "Wrong username or password" });
       }
 
-      // Set session for the user
-      req.session.user = { id: user.id, username: user.username, role: user.role };
+      req.session.user = { id: user.id, username: user.username, role: user.role, studentid: user.studentid };
 
-      // Determine the redirect URL based on the user's role
-      let redirectUrl = "/dashboard"; // Default for role=1
-      if (user.role === 2) {
-        redirectUrl = "/dashboardadmin";
-      }
-
-      // Send the redirect URL back to the client
-      res.json({ redirect: redirectUrl });
+      res.json({
+        redirect: user.role === 2 ? '/dashboardadmin' : '/dashboard',
+        studentId: user.studentid  // ส่ง studentId กลับไปที่ client-side
+      });
     });
   });
 });
@@ -143,19 +151,28 @@ app.post("/login", isAuthenticated, (req, res) => {
 app.post('/auth/google', (req, res) => {
   try {
     const userinfo = req.body.userinfo;
+
     if (!userinfo) {
       return res.status(400).json({ error: 'No user info provided' });
     }
 
-    // Print userinfo in log to check if displayName exists
+    // Log user info for debugging
     console.log('Userinfo received:', userinfo);
 
-    // Check for displayName or fallback to default value
-    const displayName = userinfo.displayName || 'Default DisplayName';
+    // Extract fullname from email if displayName or fullname is not provided
+    const getNameFromEmail = (email) => {
+      const namePart = email.split('@')[0]; // Get the part before the @ symbol
+      return namePart
+        .split('.')
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()) // Capitalize each part
+        .join(' '); // Join parts with space
+    };
 
-    // Check if email contains 'ORAPHAN' and log the result
+    const displayName = userinfo.displayName || userinfo.fullname || getNameFromEmail(userinfo.email);
+
+    // Determine if user is admin based on email
     const isAdmin = userinfo.email.toLowerCase().includes('oraphan');
-    console.log('isAdmin:', isAdmin); // Debugging statement
+    console.log('isAdmin:', isAdmin);
 
     const sqlCheck = "SELECT * FROM student WHERE email = ?";
     con.query(sqlCheck, [userinfo.email], (err, results) => {
@@ -165,76 +182,87 @@ app.post('/auth/google', (req, res) => {
       }
 
       if (results.length === 0) {
-        // If email is not found in database, insert new record
-        const sqlInsert = `INSERT INTO student (email, facultyid, majorid, role, first_name, last_name, display_name) VALUES (?, ?, ?, ?, ?, ?, ?)`;
-        const randomFaculty = Math.floor(Math.random() * 10) + 1; // Random facultyid
-        const randomMajor = Math.floor(Math.random() * 10) + 1;   // Random majorid
-        const role = isAdmin ? 'admin' : 'student'; // Set role to admin if email contains 'ORAPHAN'
+        // Insert new record if user does not exist
+        const sqlInsert = `INSERT INTO student 
+          (email, facultyid, majorid, role, first_name, last_name, display_name, studentid) 
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
 
-        // Default first name and last name if not available
-        const firstName = userinfo.firstName || 'DefaultFirstName';
-        const lastName = userinfo.lastName || 'DefaultLastName';
+        // Generate random values for facultyid, majorid, and studentid
+        const randomFaculty = Math.floor(Math.random() * 10) + 1;
+        const randomMajor = Math.floor(Math.random() * 10) + 1;
+        const randomStudentId = Math.floor(Math.random() * 1000000); // Example ID generation
 
-        con.query(sqlInsert, [userinfo.email, randomFaculty, randomMajor, role, firstName, lastName, displayName], (err, result) => {
+        // Split displayName into first name and last name
+        const [firstName, lastName] = displayName.split(' ').length > 1
+          ? displayName.split(' ')
+          : [displayName, ''];
+
+        // Assign role based on email
+        const role = isAdmin ? 'admin' : 'student';
+
+        con.query(sqlInsert, [userinfo.email, randomFaculty, randomMajor, role, firstName, lastName, displayName, randomStudentId], (err, result) => {
           if (err) {
             console.error('Error inserting data:', err);
             return res.status(500).json({ error: 'Error inserting data' });
           }
 
-          // Set session user for new student or admin
+          // Set session for the new user
           req.session.user = {
-            id: result.insertId,
+            id: randomStudentId,
             email: userinfo.email,
-            firstName: firstName,
-            lastName: lastName,
-            displayName: displayName,
-            role: role,
+            firstName,
+            lastName,
+            displayName,
+            role,
+            studentid: randomStudentId,
           };
 
           console.log('New user inserted:', result.insertId);
           console.log('User displayName:', req.session.user.displayName);
-          console.log('User role:', req.session.user.role); // Debugging statement
+          console.log('User role:', req.session.user.role);
 
           if (isAdmin) {
-            // Redirect to admin dashboard if the user is an admin
             res.redirect('/dashboardadmin');
           } else {
             res.json({
               success: true,
               role: req.session.user.role,
+              studentid: req.session.user.studentid,
             });
           }
         });
       } else {
+        // Handle existing user
         const student = results[0];
 
-        // If user exists, use either Google displayName or database display_name
+        // Use Google displayName or existing database display_name
         const displayName = userinfo.displayName || student.display_name;
 
-        // Set role to admin if the email contains 'ORAPHAN'
+        // Set role to admin if email contains 'oraphan'
         const role = isAdmin ? 'admin' : student.role;
 
-        // Set session for existing user
+        // Update session with existing user data
         req.session.user = {
           id: student.studentid,
           email: userinfo.email,
           firstName: student.first_name,
           lastName: student.last_name,
-          displayName: displayName,
-          role: role,
+          displayName,
+          role,
+          studentid: student.studentid,
         };
 
         console.log('Found existing student:', student);
         console.log('User displayName:', req.session.user.displayName);
-        console.log('User role:', req.session.user.role); // Debugging statement
+        console.log('User role:', req.session.user.role);
 
         if (isAdmin) {
-          // Redirect to admin dashboard if the user is an admin
           res.redirect('/dashboardadmin');
         } else {
           res.json({
             success: true,
             role: req.session.user.role,
+            studentid: req.session.user.studentid,
           });
         }
       }
@@ -245,11 +273,16 @@ app.post('/auth/google', (req, res) => {
   }
 });
 
+
+
+
 app.get('/importstudent', (req, res) => {
   res.render('importstudent');  // Ensure 'post.ejs' exists in your views folder
 });
 
-
+app.get('/seelist', (req, res) => {
+  res.render('seelist');  // Ensure 'post.ejs' exists in your views folder
+});
 
 
 
@@ -406,10 +439,10 @@ app.get("/listcourse", isAuthenticated, function (req, res) {
     }
 
     let filteredCourses;
-    let isMajorElectiveVisible = userEmail.startsWith('643150'); // Check if user can see Major Elective
+    let isMajorElectiveVisible = userEmail.includes('31501'); // Check if user can see Major Elective
 
     // Show all courses for users with emails starting with '643150'
-    if (userEmail.endsWith('@lamduan.mfu.ac.th') && userEmail.startsWith('643150')) {
+    if (userEmail.endsWith('@lamduan.mfu.ac.th') && userEmail.includes('31501')) {
       filteredCourses = results;
     } else {
       // Show only Free Elective courses
@@ -562,31 +595,44 @@ app.get('/review/:course_id', isAuthenticated, (req, res) => {
 // Define the sendDeletionNotification function
 // Function to send a deletion notification
 
+  // In-memory storage for notifications
+
+// Simulate notification insertion
 let notifications = [];  // In-memory storage for notifications
 
 // Simulate notification insertion
-function sendDeletionNotification(studentId, courseName) {
-    const notificationMessage = `Your review for the course '${courseName}' has been deleted.`;
-    const notification = {
-        studentId: 13,
-        message: notificationMessage,
-        createdAt: new Date().toLocaleString(),
-    };
-    notifications.push(notification);  // Store notification in memory
-    console.log('Notification sent successfully:', notification);
+// function sendDeletionNotification(studentId, courseName) {
+//     const notificationMessage = `Your review for the course '${courseName}' has been deleted.`;
+//     const notification = {
+//         studentId: studentId,  // Use the dynamic studentId passed to the function
+//         message: notificationMessage,
+//         createdAt: new Date().toLocaleString(),
+//     };
+//     notifications.push(notification);  // Store notification in memory
+//     console.log('Notification sent successfully:', notification);
+// }
+function sendDeletionNotification(studentId, message) {
+  const notification = {
+      studentId,
+      message,
+      createdAt: new Date().toISOString(),
+  };
+  notifications.push(notification); // Store notification in memory
+  console.log('Notification sent successfully:', notification);
 }
-
 // Endpoint to fetch notifications
 app.get('/api/notifications', (req, res) => {
-    const studentId = req.session.user.id;
-    if (!studentId) {
-        return res.status(401).json({ error: 'User not authenticated' });
-    }
+  const studentId = req.session.user.studentid; // Get the studentId from the session user
+  if (!studentId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+  }
 
-    // Filter notifications by studentId
-    const userNotifications = notifications.filter(notif => notif.studentId === studentId);
-    res.json({ notifications: userNotifications });
+  // Filter notifications by studentId
+  const userNotifications = notifications.filter(notif => notif.studentId == studentId);
+  res.json({ notifications: userNotifications });
 });
+
+
 
 
 
@@ -596,52 +642,54 @@ app.get('/api/notifications', (req, res) => {
 // Existing delete review route
 app.delete('/review/delete/:reviewId', (req, res) => {
   const reviewId = req.params.reviewId;
-  const studentId = req.body.studentId; // Assuming studentId is passed in the request body
-  console.log('Received reviewId:', reviewId);
-  console.log('Student ID:', studentId);
-
-  // MySQL query to get the course name using course_id from the course_reviews table
-  const getCourseQuery = `
-      SELECT c.name AS course_name
-      FROM course_reviews r
-      JOIN coursee c ON r.course_id = c.id
-      WHERE r.id = ?
-  `;
-
+  
+  // Fetch the review details to get the correct studentId (from the review)
+  const getReviewQuery = 
+  `
+    SELECT r.student_id, c.name AS course_name
+    FROM course_reviews r
+    JOIN coursee c ON r.course_id = c.id
+    WHERE r.id = ?`
+  ;
+  
   // MySQL query to delete the review by its ID
   const deleteQuery = 'DELETE FROM course_reviews WHERE id = ?';
 
-  // Fetch course name before deleting the review
-  con.query(getCourseQuery, [reviewId], (err, result) => {
+  // Fetch review details to get the studentId
+  con.query(getReviewQuery, [reviewId], (err, result) => {
+    if (err) {
+      console.error('Error fetching review details:', err);
+      return res.status(500).json({ success: false, message: 'Error fetching review information.' });
+    }
+
+    if (result.length === 0) {
+      return res.status(404).json({ success: false, message: 'Review not found.' });
+    }
+
+    const studentId = result[0].student_id;  // Get the student ID from the review result
+    const courseName = result[0].course_name;  // Get the course name from the result
+
+    // Now, delete the review
+    con.query(deleteQuery, [reviewId], (err, deleteResult) => {
       if (err) {
-          console.error('Error fetching course name:', err);
-          return res.status(500).json({ success: false, message: 'Error fetching course information.' });
+        console.error('Error deleting review:', err);
+        return res.status(500).json({ success: false, message: 'Error deleting review.' });
       }
 
-      if (result.length === 0) {
-          return res.status(404).json({ success: false, message: 'Review not found.' });
+      if (deleteResult.affectedRows === 0) {
+        return res.status(404).json({ success: false, message: 'Review not found.' });
       }
 
-      const courseName = result[0].course_name;  // Get the course name from the result
+      // Send notification to the student about the deleted review
+      sendDeletionNotification(studentId, courseName,);
 
-      // Now, delete the review
-      con.query(deleteQuery, [reviewId], (err, result) => {
-          if (err) {
-              console.error('Error deleting review:', err);
-              return res.status(500).json({ success: false, message: 'Error deleting review.' });
-          }
-
-          if (result.affectedRows === 0) {
-              return res.status(404).json({ success: false, message: 'Review not found.' });
-          }
-
-          // Send notification to the student about the deleted review
-          sendDeletionNotification(studentId, courseName);
-
-          return res.json({ success: true, message: 'Review deleted successfully.' });
-      });
+      return res.json({ success: true, message: 'Review deleted successfully.' });
+    });
   });
 });
+
+
+
 // app.delete('/review/delete/:reviewId', (req, res) => {
 //   const reviewId = req.params.reviewId;
 //   const studentId = req.body.studentId;
@@ -756,7 +804,6 @@ app.post('/logout', (req, res) => {
 });
 
 
-
 // post and comment
 let posts = []; // เก็บโพสต์ทั้งหมดในตัวแปรนี้
 let comments = {}; // เก็บคอมเม้นต์ของแต่ละโพสต์โดยใช้ postId เป็น key
@@ -767,7 +814,7 @@ app.post('/submit-post', (req, res) => {
   const postId = posts.length; // ใช้ index เป็น postId
   posts.push(postContent); // เพิ่มโพสต์ใหม่ในตัวแปร posts
   comments[postId] = []; // สร้าง array ว่างสำหรับคอมเม้นต์ของโพสต์นี้
-  
+
   res.redirect('/community'); // Redirect ไปที่หน้า community
 });
 // app.post('/submit-post', (req, res) => {
@@ -818,30 +865,33 @@ app.post('/submit-post', (req, res) => {
 
 // เส้นทางสำหรับการแสดงหน้า community
 app.get('/community', (req, res) => {
-  res.render('community', { posts: posts, comments: comments }); // ส่ง posts และ comments ไปยัง community.ejs
+  const userinfo = req.session.userinfo; // Assuming user info is stored in session
+  const isAdmin = userinfo && userinfo.email === '6431501124@lamduan.mfu.ac.th'; // Check if user is admin
+
+  // Render the 'community' page with posts, comments, and isAdmin status
+  res.render('community', { posts: posts, comments: comments, isAdmin: isAdmin, userinfo: userinfo });
 });
+
 
 // เส้นทางสำหรับการแสดงหน้า comment
-app.get('/comment/:postId', (req, res) => {
-  const postId = req.params.postId;
-  const post = posts[postId];
-  const postComments = comments[postId];
-  res.render('comment', { post: post, comments: postComments, postId: postId });
-});
+// app.get('/comment/:postId', (req, res) => {
+//   const postId = req.params.postId;
+//   const post = posts[postId];
+//   const postComments = comments[postId];
+//   res.render('comment', { post: post, comments: postComments, postId: postId });
+// });
 
 // เส้นทางสำหรับการส่งคอมเม้นต์
-app.post('/submit-comment/:postId', (req, res) => {
-  const postId = req.params.postId;
-  const commentContent = req.body.commentText; // ดึงค่าคอมเมนต์จากฟอร์ม
-  const commentUser = req.body.commentUser; // ดึงชื่อผู้คอมเมนต์จากฟอร์ม
+// app.post('/submit-comment/:postId', (req, res) => {
+//   const postId = req.params.postId;
+//   const commentContent = req.body.commentText; // ดึงค่าคอมเมนต์จากฟอร์ม
+//   const commentUser = req.body.commentUser; // ดึงชื่อผู้คอมเมนต์จากฟอร์ม
 
-  // เพิ่มคอมเม้นต์ในรูปแบบของออบเจกต์ที่เก็บชื่อผู้คอมเมนต์และเนื้อหาคอมเมนต์
-  comments[postId].push({ commentText: commentContent, commentUser: commentUser });
+//   // เพิ่มคอมเม้นต์ในรูปแบบของออบเจกต์ที่เก็บชื่อผู้คอมเมนต์และเนื้อหาคอมเมนต์
+//   comments[postId].push({ commentText: commentContent, commentUser: commentUser });
 
-  res.redirect(`/comment/${postId}`); // Redirect กลับไปที่หน้า comment
-});
-
-
+//   res.redirect(`/comment/${postId}`); // Redirect กลับไปที่หน้า comment
+// });
 
 
 
@@ -849,37 +899,50 @@ app.post('/submit-comment/:postId', (req, res) => {
 
 
 
-app.post('/submit-comment/:postId', (req, res) => {
-  const postId = req.params.postId;  // รับ postId จาก URL
-  const commentText = req.body.commentText;  // รับเนื้อหาคอมเมนต์จากฟอร์ม
 
-  // เช็คคอมเมนต์ว่ามีเนื้อหาหรือไม่
-  if (!commentText) {
-    return res.status(400).send('Comment text is required');
-  }
 
-  // บันทึกคอมเมนต์ลงในฐานข้อมูล (ปรับตามที่คุณใช้งาน)
-  saveComment(postId, commentText) // ฟังก์ชันนี้เป็นฟังก์ชันของคุณในการบันทึกคอมเมนต์
+// app.post('/submit-comment/:postId', (req, res) => {
+//   const postId = req.params.postId;  // รับ postId จาก URL
+//   const commentText = req.body.commentText;  // รับเนื้อหาคอมเมนต์จากฟอร์ม
 
-  // เปลี่ยนเส้นทางกลับไปยังโพสต์หรือส่งข้อความตอบกลับ
-  res.redirect(`/your-post-route/${postId}`);
-});
+//   // เช็คคอมเมนต์ว่ามีเนื้อหาหรือไม่
+//   if (!commentText) {
+//     return res.status(400).send('Comment text is required');
+//   }
 
-app.post('/submit-comment/:postId', (req, res) => {
-  console.log(req.body);  // แสดงข้อมูลที่ส่งมาในคอนโซล
-});
-app.get('/your-post-route/:postId', (req, res) => {
-  const postId = req.params.postId;
+//   // บันทึกคอมเมนต์ลงในฐานข้อมูล (ปรับตามที่คุณใช้งาน)
+//   saveComment(postId, commentText) // ฟังก์ชันนี้เป็นฟังก์ชันของคุณในการบันทึกคอมเมนต์
 
-  // ค้นหาโพสต์และคอมเมนต์จากฐานข้อมูล
-  const post = getPostById(postId); // ฟังก์ชันของคุณในการดึงโพสต์
-  const comments = getCommentsForPost(postId); // ฟังก์ชันของคุณในการดึงคอมเมนต์
+//   // เปลี่ยนเส้นทางกลับไปยังโพสต์หรือส่งข้อความตอบกลับ
+//   res.redirect(`/your-post-route/${postId}`);
+// });
 
-  // ตรวจสอบให้แน่ใจว่า comments มีข้อมูล
-  console.log(comments);  // แสดงคอมเมนต์ในคอนโซล
+// app.post('/submit-comment/:postId', (req, res) => {
+//   console.log(req.body);  // แสดงข้อมูลที่ส่งมาในคอนโซล
+// });
+// app.get('/your-post-route/:postId', (req, res) => {
+//   const postId = req.params.postId;
 
-  res.render('comment', { post: post.content, comments: comments, postId: postId });
-});
+//   // ค้นหาโพสต์และคอมเมนต์จากฐานข้อมูล
+//   const post = getPostById(postId); // ฟังก์ชันของคุณในการดึงโพสต์
+//   const comments = getCommentsForPost(postId); // ฟังก์ชันของคุณในการดึงคอมเมนต์
+
+//   // ตรวจสอบให้แน่ใจว่า comments มีข้อมูล
+//   console.log(comments);  // แสดงคอมเมนต์ในคอนโซล
+
+//   res.render('comment', { post: post.content, comments: comments, postId: postId });
+// });
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1278,57 +1341,7 @@ const cors = require('cors');
 app.use(cors());
 
 
-// ------------- WITH DASHBOARD ------------- //
-// app.get('/reviewsqty', (req, res) => {
-//   try {
-//     const sql = `
-//                 SELECT 
-//                   CASE 
-//                     WHEN T2.COURSEFLG = 1 THEN 'MAJOR'
-//                     WHEN T2.COURSEFLG = 2 THEN 'FREE'
-//                     ELSE ''
-//                   END	AS FLGNAME,
-//                   COUNT(*) AS COUNT
-//                 FROM COURSE_REVIEWS T1
-//                 LEFT JOIN COURSEE T2 ON T1.COURSE_ID = T2.ID
-//                 GROUP BY T2.COURSEFLG
-//               `;
 
-//     con.query(sql, (err, results) => {
-//       if (err) {
-//         return res.status(500).json({
-//           res: false,
-//           errMsg: 'Error while fetching data from COURSE_REVIEWS',
-//           error: err.message,
-//         });
-//       }
-
-//       let majorQty = 0;
-//       let freeQty = 0;
-
-//       results.forEach(row => {
-//         if (row.FLGNAME === 'MAJOR') {
-//           majorQty = row.COUNT;
-//         } else if (row.FLGNAME === 'FREE') {
-//           freeQty = row.COUNT;
-//         }
-//       });
-
-//       return res.json({
-//         res: true,
-//         major: majorQty,
-//         free: freeQty
-//       });
-//     });
-
-//   } catch (error) {
-//     return res.status(500).json({
-//       res: false,
-//       errMsg: 'Error while fetching data from COURSE_REVIEWS',
-//       error: error.message
-//     });
-//   }
-// });
 app.get('/reviewsqty', (req, res) => {
   const sql = `
     SELECT 
@@ -1336,7 +1349,10 @@ app.get('/reviewsqty', (req, res) => {
       (SELECT COUNT(*) FROM coursee) AS total_courses_open,
       (SELECT COUNT(*) FROM student_course_history 
        JOIN coursee ON student_course_history.course_id = coursee.id 
-       WHERE coursee.type = 'Free Elective') AS total_free_reviews
+       WHERE coursee.type = 'Free Elective') AS total_free_reviews,
+      (SELECT COUNT(*) FROM student_course_history 
+       JOIN coursee ON student_course_history.course_id = coursee.id 
+       WHERE coursee.type = 'Major Elective') AS total_major_reviews
   `;
 
   con.query(sql, (err, results) => {
@@ -1347,13 +1363,15 @@ app.get('/reviewsqty', (req, res) => {
     const totalReviews = results[0].total_reviews; // Total reviews count
     const totalCoursesOpen = results[0].total_courses_open; // Total courses open count
     const totalFreeReviews = results[0].total_free_reviews; // Total free elective reviews count
+    const totalMajorReviews = results[0].total_major_reviews; // Total major elective reviews count
 
     // Send the results back as JSON
     res.json({
       res: true,
       totalReviews,
       totalCoursesOpen,
-      totalFreeReviews
+      totalFreeReviews,
+      totalMajorReviews
     });
   });
 });
@@ -1362,40 +1380,8 @@ app.get('/reviewsqty', (req, res) => {
 
 
 
-// app.get("/reviewChart", (req, res) => {
-//   try {
-//     const sql = `
-//               SELECT 
-//                 T0.RATE_OVERVIEW AS RATE, T1.NAME
-//               FROM COURSE_REVIEWS T0
-//               LEFT JOIN COURSEE T1 ON T0.COURSE_ID = T1.ID 
-//               ORDER BY T0.RATE_OVERVIEW DESC
-//               LIMIT 10
-//           `;
 
-//     con.query(sql, (err, results) => {
-//       if (err) {
-//         return res.status(500).json({
-//           res: false,
-//           errMsg: 'Error while fetching data from database.',
-//           error: err.message,
-//         });
-//       }
 
-//       // console.log(results[0])
-//       return res.json({
-//         res: true,
-//         data: results
-//       });
-
-//     });
-//   } catch (error) {
-//     return res.status(500).json({
-//       res: false,
-//       errMsg: 'Error: ' + error.message
-//     });
-//   }
-// });
 app.get('/reviewChart', (req, res) => {
   const sql = 'SELECT name AS NAME, rating AS RATE FROM coursee ORDER BY rating DESC LIMIT 10'; // Replace 'coursee' with your table name
 
@@ -1506,17 +1492,22 @@ app.get("/home", isAuthenticated, (req, res) => res.sendFile(path.join(__dirname
 app.get("/login", (req, res) => res.sendFile(path.join(__dirname, "views/login0.html")));
 // Assuming you're using Express.js or similar backend framework
 app.get('/profile', (req, res) => {
-  const userinfo = {
-    username: 'WACHIRARAT',  // This is the original username if you need it.
-    fullname: 'WACHIRARAT PUKANAD',  // Full name to be used as the username
-    email: '6431501100@lamduan.mfu.ac.th',
-    image: 'https://lh3.googleusercontent.com/a/ACg8ocLU90QliI7ynPNDpdAsmRk1D4RV5qJxJMABM9KBZ0FB0GNsnAw=s96-c'
-  };
-  
+  // Ensure the session contains the user information
+  if (!req.session.user) {
+    return res.redirect('/login'); // Redirect to login if no user session is found
+  }
 
-  // Pass the userinfo object to the template
+  const userinfo = {
+    email: req.session.user.email,
+    fullname: req.session.user.firstName + ' ' + req.session.user.lastName,
+    image: req.session.user.image || '', // If an image is stored in the session, use it; otherwise, set it to an empty string
+  };
+
+  // Render the profile page and pass the user information
   res.render('profile', { user: userinfo });
 });
+
+  
 
 
 
@@ -1552,41 +1543,462 @@ app.get('/commuadmin', (req, res) => {
   // Example data, you can replace this with data from a database or API
   res.render('commuadmin', { posts: posts, comments: comments }); // ส่ง posts และ comments ไปยัง community.ejs
 });
-app.delete('/commuadmin/delete/:postIndex', (req, res) => {
-  const postIndex = req.params.postIndex;
-
-  // Validate the index
-  if (postIndex < 0 || postIndex >= posts.length) {
-    return res.status(404).json({ success: false, message: 'Post not found' });
-  }
-
-  // Remove the post
-  posts.splice(postIndex, 1); // Removes the post at the given index
-
-  // Respond with success
-  res.json({ success: true });
-});
 
 
 app.get('/logout', (req, res) => {
   req.session.destroy();
   res.json({ success: true });
 });
-//   const posts = [
-//     'First community post',
-//     'Second community post',
-//     'Third community post'
-//   ];
 
-//   const comments = [
-//     ['First comment on first post', 'Second comment on first post'],
-//     ['First comment on second post'],
-//     [] // No comments on third post
-//   ];
+app.get('/community', (req, res) => {
+  
+  const sqlQuery = `
+    SELECT postt.postid, postt.postdetail, postt.posttime, COUNT(comment.commentid) AS commentCount
+    FROM postt
+    LEFT JOIN comment ON postt.postid = comment.postid
+    GROUP BY postt.postid;
+  `;
 
-//   // Render 'commuadmin' view and pass posts and comments as data
-//   res.render('commuadmin', { posts, comments });
+  con.query(sqlQuery, (err, results) => {
+    if (err) {
+      console.error('Error fetching posts:', err);
+      return res.status(500).send('Error fetching posts');
+    }
+    res.render('community', { posts: results }); // Render posts in community page
+  });
+});
+app.get('/community/getPosts', (req, res) => {
+  const sqlQuery = `
+      SELECT 
+          postt.postid, 
+          postt.postdetail, 
+          postt.posttime, 
+          COUNT(comment.commentid) AS commentCount
+      FROM postt
+      LEFT JOIN comment ON postt.postid = comment.postid
+      GROUP BY postt.postid;
+  `;
+  
+  con.query(sqlQuery, (err, result) => {
+      if (err) {
+          console.error('Error fetching posts from MySQL:', err);
+          return res.status(500).json({ message: 'Error fetching posts' });
+      }
+      res.json(result);  // Send the posts as JSON
+  });
+});
+// POST Route for creating a new post
+app.post('/post', (req, res) => {
+  const { postContent, email } = req.body;
+
+  // Validate input data
+  if (!postContent || !email) {
+    return res.status(400).send('Post detail and email are required.');
+  }
+
+  const sql = 'INSERT INTO postt (postdetail, email) VALUES (?, ?)';
+  con.query(sql, [postContent, email], (err, result) => {
+    if (err) {
+      console.error('Error inserting post:', err);
+      return res.status(500).send('Database error: ' + (err.sqlMessage || err.message));
+    }
+
+    const newPost = {
+      postid: result.insertId,
+      postdetail: postContent,
+      email: email,
+      time: new Date(),
+      comments: []
+    };
+
+    res.send({ message: 'Post added successfully', postId: result.insertId });
+  });
+});
+
+// GET Route to view comments for a specific post
+app.get('/comment/:postid', (req, res) => {
+  const postId = req.params.postid;
+  const user = req.session.user || {}; // Get user info from session, or an empty object if not available
+
+  // Fetch the post and comments from the database
+  con.query('SELECT * FROM postt WHERE postid = ?', [postId], (err, postResults) => {
+      if (err) {
+          console.error(err);
+          return res.status(500).send('Error fetching post');
+      }
+
+      if (postResults.length === 0) {
+          return res.status(404).send('Post not found');
+      }
+
+      const post = postResults[0];
+
+      // Fetch the comments
+      con.query(
+          `SELECT comment.commentid, comment.commentdetail, student.first_name, student.last_name 
+           FROM comment 
+           JOIN student ON comment.email = student.email 
+           WHERE comment.postid = ?`,
+          [postId],
+          (err, commentsResults) => {
+              if (err) {
+                  console.error(err);
+                  return res.status(500).send('Error fetching comments');
+              }
+
+              const comments = commentsResults.map(comment => ({
+                  commentid: comment.commentid,
+                  detail: comment.commentdetail,
+                  name: `${comment.first_name} ${comment.last_name}`
+              }));
+
+              // Pass 'user' and other data to the template
+              res.render('comment', { post, postId, comments, user });
+          }
+      );
+  });
+});
+
+
+
+
+
+
+
+// POST Route for submitting a comment
+// POST Route for submitting a comment
+app.post('/submit-comment/:postId', (req, res) => {
+  const { commentText } = req.body;
+  const { postId } = req.params;
+  const userEmail = req.session.user.email; // Assuming user email is stored here
+
+  if (!commentText || !userEmail) {
+    return res.status(400).send('Comment text and user email are required.');
+  }
+
+  const insertSql = 'INSERT INTO comment (postid, commentdetail, email) VALUES (?, ?, ?)';
+  con.query(insertSql, [postId, commentText, userEmail], (err, result) => {
+    if (err) {
+      console.error('Error inserting comment:', err);
+      return res.status(500).send('Database error: ' + (err.sqlMessage || err.message));
+    }
+
+    // Now, select the new comment and return the response
+    const selectSql = `SELECT comment.commentdetail, student.first_name, student.last_name 
+                       FROM comment  
+                       JOIN student ON comment.email = student.email 
+                       WHERE comment.commentid = ?`;
+
+    con.query(selectSql, [result.insertId], (err, newCommentResults) => {
+      if (err) {
+        console.error('Error fetching new comment:', err);
+        return res.status(500).send('Error fetching new comment');
+      }
+
+      const newComment = {
+        detail: newCommentResults[0].commentdetail,
+        name: `${newCommentResults[0].first_name} ${newCommentResults[0].last_name}`
+      };
+
+      res.send({ message: 'Comment added successfully', comment: newComment });
+    });
+  });
+});
+
+
+
+// DELETE Route for deleting a comment (Admin Only)
+// DELETE Route for deleting a comment (Admin Only)
+// Route to delete a comment
+app.get('/delete-comment/:commentid', (req, res) => {
+  const commentId = req.params.commentid;
+  const userEmail = req.session.userEmail; // Ensure you get the logged-in user's email
+
+  // Check if the user is authorized (admin in this case)
+  if (userEmail !== '6431501124@lamduan.mfu.ac.th') {
+      return res.status(403).send({ message: 'You are not authorized to delete this comment.' });
+  }
+
+  // Render a confirmation page or send a confirmation message
+  res.render('confirm-deletion', {
+      commentId: commentId, // Pass the comment ID to the confirmation page
+      message: 'Are you sure you want to delete this comment?',
+  });
+});
+
+
+
+app.post('/delete-comment/:commentid', (req, res) => {
+  const commentId = req.params.commentid;
+  const userEmail = req.session.user.email // Check the user email
+
+  console.log("Received commentId:", commentId); // Debugging step
+  console.log("User email:", userEmail); // Check the user email in the session
+
+  // Ensure only admin can delete comments
+  if (userEmail !== '6431501124@lamduan.mfu.ac.th') {
+      return res.status(403).send({ message: 'You are not authorized to delete this comment.' });
+  }
+
+  // Check if the commentId exists before attempting deletion
+  con.query('SELECT * FROM comment WHERE commentid = ?', [commentId], (err, result) => {
+      if (err) {
+          console.error('Database error:', err);
+          return res.status(500).send({ message: 'Error finding comment.' });
+      }
+
+      if (result.length === 0) {
+          console.log('No comment found with that ID:', commentId); // Debugging step
+          return res.status(404).send({ message: 'Comment not found.' });
+      }
+
+      console.log('Comment found:', result); // Debugging step
+      
+      // Proceed with deletion if comment exists
+      con.query('DELETE FROM comment WHERE commentid = ?', [commentId], (err, result) => {
+          if (err) {
+              console.error('Database error during delete:', err); // Log the error
+              return res.status(500).send({ message: 'Error deleting comment.' });
+          }
+
+          if (result.affectedRows === 0) {
+              console.log('No comment deleted, affectedRows is 0'); // Debugging step
+              return res.status(404).send({ message: 'Comment not found.' });
+          }
+
+          console.log('Comment successfully deleted:', result); // Debugging step
+          res.send({ message: 'Comment successfully deleted.' });
+      });
+  });
+});
+
+// Handle GET request for comment deletion confirmation
+
+
+
+
+
+
+
+
+// app.post('/submit-comment/:postId', (req, res) => {
+//   const { commentText } = req.body;
+//   const { postId } = req.params;
+//   const userEmail = req.session.user.email; // ดึงอีเมลจาก session
+
+//   if (!commentText || !userEmail) {
+//     return res.status(400).send('Comment text and user email are required.');
+//   }
+
+//   // ทำการบันทึกคอมเมนต์ใหม่ลงฐานข้อมูล
+//   const insertSql = 'INSERT INTO comment (postid, commentdetail, email) VALUES (?, ?, ?)';
+//   con.query(insertSql, [postId, commentText, userEmail], (err, result) => {
+//     if (err) {
+//       console.error('Error inserting comment:', err);
+//       return res.status(500).send('Database error: ' + (err.sqlMessage || err.message));
+//     }
+
+//     // ดึงคอมเมนต์ใหม่ที่เพิ่งถูกเพิ่ม
+//     const selectSql = `SELECT comment.commentdetail, student.first_name, student.last_name 
+//                        FROM comment  
+//                        JOIN student ON comment.email = student.email 
+//                        WHERE comment.commentid = ?`;
+
+//     con.query(selectSql, [result.insertId], (err, newCommentResults) => {
+//       if (err) {
+//         console.error('Error fetching new comment:', err);
+//         return res.status(500).send('Error fetching new comment');
+//       }
+
+//       const newComment = {
+//         detail: newCommentResults[0].commentdetail,
+//         name: `${newCommentResults[0].first_name} ${newCommentResults[0].last_name}`
+//       };
+
+//       // ส่งกลับข้อมูลคอมเมนต์ใหม่
+//       res.send({ message: 'Comment added successfully', comment: newComment });
+//     });
+//   });
 // });
+
+// app.post('/submit-comment/:postId', (req, res) => {
+//   const { commentText } = req.body;
+//   const { postId } = req.params;
+//   const userEmail = req.session.user.email; // ดึงอีเมลจาก session
+
+//   if (!commentText || !userEmail) {
+//     return res.status(400).send('Comment text and user email are required.');
+//   }
+
+//   const sql = `
+//     SELECT comment.commentdetail, student.first_name, student.last_name 
+//     FROM comment  
+//     JOIN student  ON comment.email = student.email 
+//     WHERE comment.commentid = ?
+// `;
+
+//   con.query(sql, [result.insertId], (err, newCommentResults) => {
+//     if (err) {
+//       console.error('Error fetching new comment:', err);
+//       return res.status(500).send('Error fetching new comment');
+//     }
+
+//     const newComment = {
+//       detail: newCommentResults[0].commentdetail,
+//       name: `${newCommentResults[0].first_name} ${newCommentResults[0].last_name}`
+//     };
+
+//     res.send({ message: 'Comment added successfully', comment: newComment });
+//   });
+
+//   // const sql = 'INSERT INTO comment (commentdetail, email, postid) VALUES (?, ?, ?)';
+//   // con.query(sql, [commentText, userEmail, postId], (err, result) => {
+//   //   if (err) {
+//   //     console.error('Error inserting comment:', err.sqlMessage || err.message);
+//   //     return res.status(500).send('Database error: ' + (err.sqlMessage || err.message));
+//   //   }
+
+//   //   // ดึงคอมเมนต์ที่เพิ่มใหม่
+//   //   const newComment = {
+//   //     commentid: result.insertId,
+//   //     commentdetail: commentText,
+//   //     email: userEmail,
+//   //     postid: postId,
+//   //     commenttime: new Date()
+//   //   };
+
+//   //   // ส่งกลับคอมเมนต์ใหม่
+//   //   res.send({ message: 'Comment added successfully', comment: newComment });
+//   // });
+// });
+// Assuming you use Express
+// app.delete('/post/:postId', async (req, res) => {
+//   const { postId } = req.params;
+//   const user = req.user; // Assuming user information is stored in `req.user`
+
+//   if (user.role !== 'admin') {
+//       return res.status(403).json({ error: 'Unauthorized' }); // Admin check
+//   }
+
+//   try {
+//       // Assuming Post is your model for posts
+//       await Post.findByIdAndDelete(postId); 
+//       res.status(200).send('Post deleted successfully');
+//   } catch (error) {
+//       console.error('Error deleting post:', error);
+//       res.status(500).json({ error: 'Failed to delete post' });
+//   }
+// });
+
+// Assuming you're using MongoDB and the Post model to store the posts
+// DELETE Route for deleting a post
+
+
+
+
+
+// app.delete('/commuadmin/delete/:postId', (req, res) => {
+//   const postId = req.params.postId;
+
+//   const query = 'DELETE FROM postt WHERE postid = ?';
+
+//   con.query(query, [postId], (err, result) => {
+//       if (err) {
+//           console.error('Error deleting post:', err);
+//           return res.status(500).json({ message: 'Failed to delete post.' });
+//       }
+
+//       if (result.affectedRows > 0) {
+//           res.json({ message: 'Post deleted successfully.' });
+//       } else {
+//           res.json({ message: 'Post not found.' });
+//       }
+//   });
+// });
+
+app.get('/commuadmin/getPosts', (req, res) => {
+  // Adjust the query to include the comment count as a calculated field
+  const sqlQuery = `
+      SELECT postt.postid, postt.postdetail, COUNT(comment.commentid) AS commentCount
+      FROM postt
+      LEFT JOIN comment ON postt.postid = comment.postid
+      GROUP BY postt.postid;
+  `;
+
+  con.query(sqlQuery, (err, results) => {
+      if (err) {
+          console.error('Error fetching posts:', err);
+          return res.status(500).json({ message: 'Failed to fetch posts.' });
+      }
+      
+      res.json(results); // Send the posts with the comment count as JSON response
+  });
+});
+
+
+// Endpoint to delete a post
+app.delete('/commuadmin/delete/:postId', (req, res) => {
+  const postId = req.params.postId;
+
+  // Query to get the student ID and post detail
+  const getPostQuery = `
+      SELECT s.studentid, p.postdetail 
+      FROM postt p
+      JOIN student s ON p.email = s.email
+      WHERE p.postid = ?`;
+
+  con.query(getPostQuery, [postId], (err, result) => {
+      if (err) {
+          console.error('Error fetching post:', err);
+          return res.status(500).json({ message: 'Failed to fetch post information.' });
+      }
+
+      if (result.length === 0) {
+          return res.status(404).json({ message: 'Post not found.' });
+      }
+
+      const studentId = result[0].studentid; // Fetched from the student table
+      const postDetail = result[0].postdetail;
+
+      const notificationMessage = `Your post with the details: "${postDetail}" has been deleted by an admin.`;
+      sendDeletionNotification(studentId, notificationMessage); // Send notification
+
+      // Delete the post
+      const deletePostQuery = 'DELETE FROM postt WHERE postid = ?';
+
+      con.query(deletePostQuery, [postId], (err, result) => {
+          if (err) {
+              console.error('Error deleting post:', err);
+              return res.status(500).json({ message: 'Failed to delete post.' });
+          }
+
+          res.json({ message: result.affectedRows > 0 ? 'Post deleted successfully.' : 'Post not found.' });
+      });
+  });
+});
+
+
+
+
+// Assuming Express.js for backend
+// app.delete('/delete-comment/:commentId', (req, res) => {
+//   const commentId = req.params.commentId;
+
+//   // Check if the user is an admin (ensure you have user info in the session or JWT)
+//   if (req.user && req.user.role === 'admin') {
+//       // Delete comment from the database
+//       Comment.findByIdAndDelete(commentId, (err) => {
+//           if (err) {
+//               return res.status(500).json({ success: false, message: 'Error deleting comment' });
+//           }
+//           res.json({ success: true });
+//       });
+//   } else {
+//       res.status(403).json({ success: false, message: 'Unauthorized' });
+//   }
+// });
+
+
 
 // Server listener
 const port = 3000;

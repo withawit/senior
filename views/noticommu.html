@@ -28,6 +28,9 @@
             width: 35px;
             margin-top: 4rem;
         }
+        .card {
+            height: 7rem;
+        }
     </style>
     <body>
         <div class="flex-row">
@@ -43,82 +46,117 @@
                     <li class="mt-4"><a href="/bookmark"><i class="bi bi-star"></i></a></li>
                     <li class="mt-4"><a href="/notification"><i class="bi bi-bell"></i></a></li>
                     <li class="mt-4"><a href="/history"><i class="bi bi-pencil-square"></i></li>
-                        <a class="btn" onclick="profile()">
-                            <div id="user-profile"></div>
-                        </a>
+                    <a class="btn" onclick="profile()">
+                        <div id="user-profile"></div>
+                    </a>
+    
                 </div>
             </div>
+
             <div class="container">
                 <h1 class="mt-5" style="color: #A60303;">Notification</h1>
                 <div class="container-fluid">
                     <div class="justi">
-                    <div class="mt-5" id="shape1">
-                        <a class="bubu" href="">Community</a>
+                        <div class="mt-5" id="shape1">
+                            <a class="bubu" href="/noticommu">Community</a>
+                        </div>
+                        <a href="">
+                            <div class="mt-5" id="shape2">
+                                <a href="/notireview" class="bube">Review</a>
+                            </div>
+                        </a>
                     </div>
-                    <a href=""><div class="mt-5" id="shape2">
-                        <a href="/notireview" class="bube">Review</a>
 
-
-                    </div></a>
+                    <!-- Notifications will be dynamically inserted here -->
+                    <div id="notifications-container"></div>
                 </div>
-                   <a class="ne" href="">
-                    <div class="card mt-5" style="height: 7rem;">
-                        <h3>Review home remedies plz</h3>
-                        <h4 class="co">It's good.The content of the lessons is simple.</h4>
-                    </div>
-                    </a>
-                    <a class="ne" href=""><div class="card" style="height: 7rem;"><h3 class="no">Your post  has been deleted</h3></div></a>
-                    <a class="ne" href=""><div class="card" style="height: 7rem;"><h3 class="no">Your comment  has been deleted</h3></div></a>
-                </div>
+            </div>
         </div>
-        
+
         <script src="../assets/css/load-html.js"></script>
 
         <script>
-             $(document).ready(() => {
-        const userinfo = JSON.parse(sessionStorage.getItem('userinfo'));
-        console.log(userinfo)
-        if (userinfo && userinfo.image) {
-            $('#user-profile').html(`
-                <img class="img-profile" crossorigin="anonymous" src="${userinfo.image}" alt="User Profile" referrerpolicy="no-referrer" />
-            `);
-        } else {
-            console.log("No user image available");
-            $('#user-profile').html(`<p>No profile image available.</p>`);
-        }
+            $(document).ready(() => {
+                // Fetch user info from sessionStorage
+                const userinfo = JSON.parse(sessionStorage.getItem('userinfo'));
+                console.log(userinfo);
+                if (userinfo && userinfo.image) {
+                    $('#user-profile').html(`
+                        <img class="img-profile" crossorigin="anonymous" src="${userinfo.image}" alt="User Profile" referrerpolicy="no-referrer" />
+                    `);
+                } else {
+                    console.log("No user image available");
+                    $('#user-profile').html(`<p>No profile image available.</p>`);
+                }
 
-        get_review_qty();
-        get_review_chart();
-        
-    });
+                // Fetch notifications
+                fetchNotifications();
+            });
 
+            // Fetch notifications from the server
+            function fetchNotifications() {
+                const userinfo = JSON.parse(sessionStorage.getItem('userinfo'));
+                const studentId = userinfo.id;
 
-    function logout() {
-        fetch('/logout', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
+                fetch(`/api/notifications?studentId=${studentId}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data);  // Logs the fetched notification data
+                    displayNotifications(data.notifications);
+                })
+                .catch(error => {
+                    console.error('Error fetching notifications:', error);
+                });
             }
-        })
-        .then(response => response.json()) // แปลง response เป็น JSON
-        .then(data => {
-            if (data.redirect) {
-                window.location.href = data.redirect; // ใช้ URL ที่ได้รับจาก server
-            } else {
-                console.error('Logout failed');
+
+            // Display notifications on the page
+            function displayNotifications(notifications) {
+                const container = $('#notifications-container');
+                container.empty();  // Clear any existing content
+                
+                if (notifications.length === 0) {
+                    container.append('<p>No notifications yet.</p>');
+                } else {
+                    notifications.forEach(notification => {
+                        const notificationCard = `
+                            <a class="ne" href="#">
+                                <div class="card mt-5">
+                                    <h4 class="co">${notification.message}</h4>
+                                    ${notification.createdAt}
+                                </div>
+                            </a>
+                        `;
+                        container.append(notificationCard);
+                    });
+                }
             }
-        })
-        .catch(error => console.error('Error:', error));
-    }
-    function topicone (){
-        window.location.href="forums.html"
-    }
-    function create(){
-        window.location.href="forums.html"
-    }
-    function profile(){
-    window.location.href='/profile';
-}
-</script>
+            function profile(){
+                window.location.href='/profile';
+            }
+
+            // Handle logout
+            function logout() {
+                fetch('/logout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json()) 
+                .then(data => {
+                    if (data.redirect) {
+                        window.location.href = data.redirect;
+                    } else {
+                        console.error('Logout failed');
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+            }
+        </script>
     </body>
 </html>

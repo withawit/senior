@@ -19,7 +19,6 @@
             width: 35px;
             margin-top: 4rem;
         }
-        
     </style>
   </head>
   
@@ -48,10 +47,9 @@
         <div class="col mt-4" style="background-color: #e7e7e7;">
           <div class="container">
           
-      <form action="/search" method="GET" >
-        <!-- <div class="container" style="background-color: #e7e7e7;"> -->
+      <form action="/search" method="GET">
           <!-- Course Name and School Dropdown in the Same Row -->
-          <div class="row" >
+          <div class="row">
             <div class="col-md-6 mb-2">
               <p>Name Course</p>
               <div class="input-group">
@@ -115,9 +113,8 @@
         </div>
       </form>
     </div>
-      <!-- Display Courses After Form Submission -->
       
-      <% if (courses && courses.length > 0) { %> <!-- Check if courses exist -->
+      <% if (courses && courses.length > 0) { %> <!-- Only display after form submission -->
         <div class="container">
         <table class="table table-striped mt-4">
           <thead>
@@ -146,15 +143,14 @@
       <% } %>
     </div>
     <script src="../assets/css/load-html.js"></script>
-    <script> $(document).ready(() => {
+    <script> 
+    $(document).ready(() => {
         const userinfo = JSON.parse(sessionStorage.getItem('userinfo'));
-        console.log(userinfo)
         if (userinfo && userinfo.image) {
             $('#user-profile').html(`
                 <img class="img-profile" crossorigin="anonymous" src="${userinfo.image}" alt="User Profile" referrerpolicy="no-referrer" />
             `);
         } else {
-            console.log("No user image available");
             $('#user-profile').html(`<p>No profile image available.</p>`);
         }
 
@@ -163,7 +159,6 @@
         
     });
 
-
     function logout() {
         fetch('/logout', {
             method: 'POST',
@@ -171,20 +166,18 @@
                 'Content-Type': 'application/json'
             }
         })
-        .then(response => response.json()) // แปลง response เป็น JSON
+        .then(response => response.json())
         .then(data => {
             if (data.redirect) {
-                window.location.href = data.redirect; // ใช้ URL ที่ได้รับจาก server
-            } else {
-                console.error('Logout failed');
+                window.location.href = data.redirect;
             }
         })
         .catch(error => console.error('Error:', error));
     }
-    function profile(){
-    window.location.href='/profile';
-}
-</script>
-</div>
+
+    function profile() {
+        window.location.href='/profile';
+    }
+    </script>
   </body>
 </html>

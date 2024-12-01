@@ -17,13 +17,15 @@
     <script src="../assets/lib/fusioncharts/js/fusioncharts.js"></script>
     <script src="../assets/lib/fusioncharts/js/themes/fusioncharts.theme.fusion.js"></script>
 </head>
+
 <style>
     .img-profile {
-         border-radius: 50%;
-         width: 35px;
-         margin-top: 4rem;
-     }
+        border-radius: 50%;
+        width: 35px;
+        margin-top: 4rem;
+    }
 </style>
+
 <body>
     <div class="flex-row">
         <div class="nav">
@@ -31,63 +33,87 @@
                 <img src="../assets/images/สัญลักษณ์ประจำมหาวิทยาลัยแม่ฟ้าหลวง.png" width="50,70">
                 <p class="text-center" style="color: #A60303">MFU</p>
                 <hr>
-                <li class="mt-5"> <a href="/dashboard"><i class="bi bi-bar-chart"></i></a> </li>
-                <li class="mt-4"><a href="/listcourse"><i class="bi bi-map"></i></a></li>
-                <li class="mt-4"><a href="/search"><i class="bi bi-search"></i></a></li>
-                <li class="mt-4"><a href="/community"><i class="bi bi-chat"></i></a></li>
-                <li class="mt-4"><a href="/bookmark"><i class="bi bi-star"></i></a></li>
-                <li class="mt-4"><a href="/notification"><i class="bi bi-bell"></i></a></li>
-                <li class="mt-4"><a href="/history"><i class="bi bi-clock-history"></i></li>
-                <a class="btn" onclick="logout()">
-                    <div id="user-profile"></div>
-                </a>
 
+                <!-- Admin Sidebar for specific user email -->
+                <div id="admin-sidebar" style="display: none;">
+                    <li style="color: #A60303;">Admin</li>
+                    <li class="mt-5"><a href="/dashboardadmin"><i class="bi bi-bar-chart"></i></a></li>
+                <li class="mt-5"><a href="/listadmin"><i class="bi bi-map"></i></a></li>
+                <li class="mt-5"><a href="/importstudent"><i class="bi bi-person-plus-fill"></i></a></li>
+                <li class="mt-5"><a href="/commuadmin"><i class="bi bi-chat"></i></a></li>
+                <li class="logout"><a href="/home"><i class="bi bi-box-arrow-right"></i></a></li>
+                </div>
+
+                <!-- Regular Sidebar for other users -->
+                <div id="regular-sidebar">
+                    <li class="mt-5"> <a href="/dashboard"><i class="bi bi-bar-chart"></i></a> </li>
+                    <li class="mt-4"><a href="/listcourse"><i class="bi bi-map"></i></a></li>
+                    <li class="mt-4"><a href="/search"><i class="bi bi-search"></i></a></li>
+                    <li class="mt-4"><a href="/community"><i class="bi bi-chat"></i></a></li>
+                    <li class="mt-4"><a href="/bookmark"><i class="bi bi-star"></i></a></li>
+                    <li class="mt-4"><a href="/notification"><i class="bi bi-bell"></i></a></li>
+                    <li class="mt-4"><a href="/history"><i class="bi bi-pencil-square"></i></li>
+                        <a class="btn" onclick="profile()">
+                            <div id="user-profile"></div>
+                        </a>
+                </div>
             </div>
         </div>
+
         <div class="container">
             <h1 class="mt-5" style="color: #A60303;">Community</h1>
 
             <div class="card mt-5">
-                
+                <!-- Post content -->
                 <p style="color: #A60303; font-size: 25px; margin-left: 20px; margin-top: 10px;">
-                    <%= post %>
+                    <%= post ? post.postdetail : "No post details available." %>
                 </p>
+
                 <hr>
                 <div class="detail text-end">
-                    <span>2</span>
+                    <span>
+                        <%= (comments && Array.isArray(comments)) ? comments.length : 0 %>
+                    </span>
                     <i class="bi bi-chat comment"></i>
                 </div>
 
                 <hr>
-                <h5 class="comment">Comments</h5>
-                <% if (comments && comments.length> 0) { %>
-                    <% comments.forEach(function(comment) { %>
-                        <div>
-                          <p class="comt">
-                            <strong><%= comment.commentUser %>:</strong> <%= comment.commentText %>
-                          </p>
-                        </div>
-                      <% }); %>
-                            <% } else { %>
-                                <p style="margin-left: 10px;">No comments available.</p>
-                                <% } %>
+                <h5 class="comment" style="color: #A60303;">Comments</h5>
+                <div class="comment-container">
+                    <% if (comments && comments.length > 0) { %>
+                        <% comments.forEach(function(comment) { %>
+                            <div class="mb-3">
+                                <p class="comt">
+                                    <strong><%= comment.name %>:</strong> <%= comment.detail %>
+                
+                                    <% if (user && user.email === '6431501124@lamduan.mfu.ac.th') { %>
+                                        <!-- Show trash icon only if userEmail matches -->
+                                        <i class="bi bi-trash-fill" onclick="deleteComment('<%= comment.commentid %>')"></i>
+                                        <% } %>
+                                </p>
+                            </div>
+                        <% }); %>
+                    <% } else { %>
+                        <p>No comments available.</p>
+                    <% } %>
+                </div>
 
-
-                                    <form id="commentForm" action="/submit-comment/<%= postId %>" method="POST">
-                                        <textarea class="form-control" name="commentText" placeholder="Write a comment..." required></textarea>
-                                        <button type="submit" class="btn btn-primary mt-3">Submit Comment</button>
-                                    </form>
-                                    
-
-
+                <hr>
+                <div class="Write" style="background-color: #f1f1f1; padding: 20px; display: flex; align-items: center; display: none;">
+                    <form id="commentForm" action="/submit-comment/<%= post ? post.postid : '' %>" method="POST" style="width: 100%; display: flex; gap: 10px;">
+                        <textarea class="form-control" name="commentText" placeholder="Write a comment..." required style="flex-grow: 1; border-radius: 8px;"></textarea>
+                        <button type="submit" class="btn btn-primary" style="border-radius: 8px;">Sent</button>
+                    </form>
+                </div>
 
             </div>
-        </div>
 
+        </div>
     </div>
+
     <script src="../assets/css/load-html.js"></script>
     <script>
-$(document).ready(() => {
+         $(document).ready(() => {
             const userinfo = JSON.parse(sessionStorage.getItem('userinfo'));
             console.log(userinfo)
             if (userinfo && userinfo.image) {
@@ -104,27 +130,84 @@ $(document).ready(() => {
             
         });
 
+        $(document).ready(() => {
+            // Handle user email check and display the sidebar accordingly
+            const userinfo = JSON.parse(sessionStorage.getItem('userinfo'));
+            if (userinfo && userinfo.email === '6431501124@lamduan.mfu.ac.th') {
+                // Show admin sidebar, hide regular sidebar
+                $('#admin-sidebar').show();
+                $('#regular-sidebar').hide();
 
-        function logout() {
-            fetch('/logout', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            })
-            .then(response => response.json()) // แปลง response เป็น JSON
-            .then(data => {
-                if (data.redirect) {
-                    window.location.href = data.redirect; // ใช้ URL ที่ได้รับจาก server
-                } else {
-                    console.error('Logout failed');
-                }
-            })
-            .catch(error => console.error('Error:', error));
+                // Show comment form for this user only
+                $('.Write').hide();
+            } else {
+                // Show regular sidebar, hide admin sidebar
+                $('#admin-sidebar').hide();
+                $('#regular-sidebar').show();
+
+                // Hide comment form for others
+                $('.Write').show();
+            }
+
+            // Handle comment submission
+            $('#commentForm').on('submit', function(event) {
+                event.preventDefault(); // Prevent the form from refreshing the page
+
+                const commentText = $('textarea[name="commentText"]').val();
+                const postId = "<%= post ? post.postid : '' %>"; // Use EJS to insert post id
+
+                $.ajax({
+                    type: 'POST',
+                    url: `/submit-comment/${postId}`,
+                    contentType: 'application/json',
+                    data: JSON.stringify({ commentText: commentText }),
+                    success: function(response) {
+                        if (response.comment) {
+                            const newComment = response.comment;
+
+                            const newCommentHtml = `
+                                <div>
+                                    <p class="comt">
+                                        <strong>${newComment.name}:</strong> ${newComment.detail}
+                                    </p>
+                                </div>
+                            `;
+
+                            $('.comment-container').append(newCommentHtml);
+                            $('textarea[name="commentText"]').val('');
+                            alert('Comment successfully submitted!');
+                        }
+                    },
+                    error: function(error) {
+                        console.error('Error:', error);
+                    }
+                });
+            });
+        });
+
+        // Function to handle comment deletion
+        function deleteComment(commentId) {
+            const confirmDelete = confirm('Are you sure you want to delete this comment?');
+
+            if (confirmDelete) {
+                $.ajax({
+                    type: 'POST',
+                    url: `/delete-comment/${commentId}`,  // Send the correct comment ID to the backend
+                    success: function(response) {
+                        alert(response.message);
+                        location.reload();  // Reload the page to reflect the changes
+                    },
+                    error: function(error) {
+                        console.error('Error:', error);
+                        alert('Could not delete comment. Please try again.');
+                    }
+                });
+            }
         }
-
+        function profile(){
+    window.location.href='/profile';
+}
     </script>
-
 </body>
 
 </html>

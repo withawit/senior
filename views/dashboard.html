@@ -205,10 +205,19 @@
     let totalReviewsSpan = $('#total-reviews-number');
     let totalCoursesOpenSpan = $('#total-courses-open-number');
     let totalFreeReviewsSpan = $('#total-free-reviews-number');
+    let totalReviewsTitle = $('#total-people-reviews .card-title');
 
     totalReviewsSpan.empty();
     totalCoursesOpenSpan.empty();
     totalFreeReviewsSpan.empty();
+
+    // Check if the user email contains '31501' for Major Elective Reviews
+    const userinfo = JSON.parse(sessionStorage.getItem('userinfo'));
+    if (userinfo && userinfo.email && userinfo.email.includes('31501')) {
+        totalReviewsTitle.text('Total of all major elective reviews (People)'); // Change the title
+    } else {
+        totalReviewsTitle.text('Total of all reviews (People)');
+    }
 
     fetch('/reviewsqty', { 
         method: 'GET',
@@ -219,8 +228,15 @@
             const totalReviews = data.totalReviews || 0;
             const totalCoursesOpen = data.totalCoursesOpen || 0;
             const totalFreeReviews = data.totalFreeReviews || 0;
+            const totalMajorReviews = data.totalMajorReviews || 0; // Get major elective reviews
 
-            $('#total-reviews-number').text(totalReviews);
+            if (userinfo && userinfo.email && userinfo.email.includes('31501')) {
+                // If the email contains '31501', show the Major Elective Reviews
+                $('#total-reviews-number').text(totalMajorReviews);
+            } else {
+                $('#total-reviews-number').text(totalReviews);
+            }
+
             $('#total-courses-open-number').text(totalCoursesOpen); // Update the span for courses open
             $('#total-free-reviews-number').text(totalFreeReviews);
         } else {
@@ -232,6 +248,8 @@
         console.error('Error:', error);
     });
 }
+
+
 
 
         function get_review_chart() {
